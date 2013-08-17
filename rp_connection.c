@@ -60,11 +60,11 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
         timeout.tv_usec = 0;
         if((ready = rp_event_wait(&eh, &timeout)) > 0) {
             for(i = 0; i < ready; i++) {
-                a = eh.ready[i].data;
+                a = eh.ready[i]->data;
                 a->time = t;
                 if(a->flags & RP_CLIENT) {
                     client = a->data;
-                    if(eh.ready[i].events & RP_EVENT_READ) {
+                    if(eh.ready[i]->events & RP_EVENT_READ) {
                         if(rp_recv(a->sockfd, &client->buffer) != RP_SUCCESS) {
                             rp_connection_close(a, &eh, s);
                             continue;
@@ -79,14 +79,12 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     rp_event_add(&eh, a->sockfd, &e);
                                     continue;
                                 }
-                                c = NULL;
                                 if(client->command.proto->flags & RP_MASTER_COMMAND) {
+                                    c = master;
                                     if(master == NULL) {
                                         for(j = 0; j < s->size; j++) {
                                             s->c[j].time = 0;
                                         }
-                                    } else {
-                                        c = master;
                                     }
                                 } else {
                                     c = rp_server_lookup(s);
@@ -117,7 +115,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             }
                         }
                     }
-                    if(eh.ready[i].events & RP_EVENT_WRITE) {
+                    if(eh.ready[i]->events & RP_EVENT_WRITE) {
                         if(rp_send(a->sockfd, &client->buffer) != RP_SUCCESS) {
                             rp_connection_close(a, &eh, s);
                             continue;
@@ -137,7 +135,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                     }
                 } else if(a->flags & RP_SERVER) {
                     server = a->data;
-                    if(eh.ready[i].events & RP_EVENT_READ) {
+                    if(eh.ready[i]->events & RP_EVENT_READ) {
                         if(server->client != NULL) {
                             c = server->client;
                             client = c->data;
@@ -190,7 +188,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             }
                         }
                     }
-                    if(eh.ready[i].events & RP_EVENT_WRITE) {
+                    if(eh.ready[i]->events & RP_EVENT_WRITE) {
                         if(!(a->flags & RP_ESTABLISHED)) {
                             /* check previous connection attempt */
                             if(rp_server_connect(a) == NULL) {
@@ -283,6 +281,7 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
         if(master == c) {
             master = NULL;
             for(i = 0; i < s->size; i++) {
+                c->time = 0;
                 if(s->c[i].flags & RP_SERVER) {
                     server = s->c[i].data;
                     server->master = NULL;
@@ -397,19 +396,19 @@ rp_connection_t *rp_connection_accept(rp_connection_t *c, int sockfd)
     socklen_t l = sizeof(addr);
 
     if((s = accept(sockfd, (struct sockaddr *)&addr, &l)) < 0) {
-        syslog(LOG_ERR, "accept at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
+        syslog(LOG_ERR, "accept at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
     }
     if(c == NULL) {
         if((c = malloc(sizeof(rp_connection_t))) == NULL) {
-            syslog(LOG_ERR, "malloc at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
+            syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
             close(s);
             return NULL;
         }
         alloc = 1;
     }
     if((client = malloc(sizeof(rp_client_t))) == NULL) {
-        syslog(LOG_ERR, "malloc at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
+        syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         close(s);
         if(alloc) {
             free(c);
@@ -423,7 +422,6 @@ rp_connection_t *rp_connection_accept(rp_connection_t *c, int sockfd)
     }
     client->command.argc = client->command.argv.length = RP_NULL_LEN - 1;
     client->server = NULL;
-    memcpy(&c->address, &addr, l);
     c->flags = RP_CLIENT;
     c->data = client;
     c->sockfd = s;

@@ -7,7 +7,8 @@ char *rp_strstr(rp_string_t *s, const char *needle)
 
     while(i < s->length) {
         if(s->data[i] != *needle) {
-            i++; continue;
+            i++;
+            continue;
         }
         ptr = &s->data[i];
         str = (char *)needle;
@@ -18,5 +19,3 @@ char *rp_strstr(rp_string_t *s, const char *needle)
     }
     return NULL;
 }
-
-

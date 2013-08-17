@@ -15,9 +15,10 @@ typedef struct {
 
 typedef struct {
     int epfd;
+    struct epoll_event *epoll_events;
     size_t maxevents;
-    struct epoll_event *events;
-    rp_event_t *ready;
+    rp_event_t **ready;
+    rp_event_t *events;
 } rp_event_handler_t;
 
 rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh, size_t maxevents);
