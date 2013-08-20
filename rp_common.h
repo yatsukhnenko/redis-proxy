@@ -5,8 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <syslog.h>
 
+#include "rp_auto.h"
 #include "rp_string.h"
 
 #define RP_FAILURE -1

@@ -4,6 +4,12 @@ int *rp_socket_init(int *sockfd)
 {
     int yes = 1;
 
+#ifdef RP_LINUX
+    if((*sockfd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0)) < 0) {
+        syslog(LOG_ERR, "socket at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+        return NULL;
+    }
+#else
     if((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         syslog(LOG_ERR, "socket at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
@@ -13,6 +19,7 @@ int *rp_socket_init(int *sockfd)
         close(*sockfd);
         return NULL;
     }
+#endif
     if(setsockopt(*sockfd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes)) < 0) {
         syslog(LOG_ERR, "setsockopt at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         close(*sockfd);
