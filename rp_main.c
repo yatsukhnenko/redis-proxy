@@ -17,15 +17,15 @@ int main(int argc, char **argv)
     pid_t pid;
     int i, port;
     char c, *ptr;
-    struct passwd *pw;
     struct hostent *he;
     rp_connection_t l = {0};
+    struct passwd *pw = NULL;
     rp_connection_pool_t s = {0, 0, NULL};
 
     l.sockfd = -1;
     l.address = INADDR_ANY;
-    l.port = 0xEB18;
     strcpy(l.hr.address, "0.0.0.0");
+    l.port = htons(RP_DEFAULT_PORT);
     l.hr.port = RP_DEFAULT_PORT;
 
     for(i = 1; i < argc; i++) {
@@ -90,16 +90,15 @@ int main(int argc, char **argv)
         fprintf(stderr, "Error: at least one server must be specified\n");
         return EXIT_FAILURE;
     }
-    if((pw = getpwnam("nobody")) == NULL) {
-        fprintf(stderr, "Error: getpwnam at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
-        return EXIT_FAILURE;
-    }
     if((pid = fork()) != 0) {
         if(pid > 0) {
             return EXIT_SUCCESS;
         }
         fprintf(stderr, "Error: fork at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
         return EXIT_FAILURE;
+    }
+    if(!getuid()) {
+        pw = getpwnam("nobody");
     }
     setsid();
     if(rp_listen(&l.sockfd, l.address, l.port) == NULL) {
@@ -115,7 +114,9 @@ int main(int argc, char **argv)
             while(wait(&i) > 0);
         } else {
             setsid();
-            setuid(pw->pw_uid);
+            if(pw != NULL) {
+                setuid(pw->pw_uid);
+            }
             return rp_connection_handler_loop(&l, &s);
         }
     }

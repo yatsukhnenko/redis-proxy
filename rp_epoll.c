@@ -1,4 +1,5 @@
 #include "rp_epoll.h"
+#ifdef RP_HAVE_EPOLL
 
 rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh, size_t maxevents)
 {
@@ -24,6 +25,7 @@ rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh, size_t maxevents)
     eh->add = rp_epoll_add;
     eh->del = rp_epoll_del;
     eh->wait = rp_epoll_wait;
+    syslog(LOG_INFO, "using 'epoll' I/O multiplexing mechanism");
 
     return eh;
 }
@@ -118,3 +120,5 @@ int rp_epoll_wait(rp_event_handler_t *eh, struct timeval *timeout)
 
     return ready;
 }
+
+#endif /* RP_HAVE_EPOLL */

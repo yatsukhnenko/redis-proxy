@@ -1,5 +1,5 @@
 #include "rp_select.h"
-
+#ifdef RP_HAVE_SELECT
 
 rp_event_handler_t *rp_select_init(rp_event_handler_t *eh, size_t maxevents)
 {
@@ -16,6 +16,7 @@ rp_event_handler_t *rp_select_init(rp_event_handler_t *eh, size_t maxevents)
     eh->add = rp_select_add;
     eh->del = rp_select_del;
     eh->wait = rp_select_wait;
+    syslog(LOG_INFO, "using 'select' I/O multiplexing mechanism");
 
     return eh;
 }
@@ -98,3 +99,5 @@ int rp_select_wait(struct rp_event_handler *eh, struct timeval *timeout)
     }
     return ready;
 }
+
+#endif /* RP_HAVE_SELECT */

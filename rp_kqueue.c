@@ -1,4 +1,5 @@
 #include "rp_kqueue.h"
+#ifdef RP_HAVE_KQUEUE
 
 rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh, size_t maxevents)
 {
@@ -23,6 +24,7 @@ rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh, size_t maxevents)
     eh->add = rp_kqueue_add;
     eh->del = rp_kqueue_del;
     eh->wait = rp_kqueue_wait;
+    syslog(LOG_INFO, "using 'kqueue' I/O multiplexing mechanism");
 
     return eh;
 }
@@ -105,3 +107,5 @@ int rp_kqueue_wait(struct rp_event_handler *eh, struct timeval *timeout)
 
     return ready;
 }
+
+#endif /* RP_HAVE_KQUEUE */

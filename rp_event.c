@@ -1,8 +1,8 @@
 #include "rp_event.h"
 
-#if defined RP_HAVE_EPOLL
+#if defined(RP_HAVE_EPOLL)
 #include "rp_epoll.h"
-#elif defined RP_HAVE_KQUEUE
+#elif defined(RP_HAVE_KQUEUE)
 #include "rp_kqueue.h"
 #else
 #include "rp_select.h"
@@ -37,9 +37,9 @@ rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh, size_t maxeven
         return NULL;
     }
 
-#if defined RP_HAVE_EPOLL
+#if defined(RP_HAVE_EPOLL)
     if(rp_epoll_init(eh, maxevents) == NULL) {
-#elif defined RP_HAVE_KQUEUE
+#elif defined(RP_HAVE_KQUEUE)
     if(rp_kqueue_init(eh, maxevents) == NULL) {
 #else
     if(rp_select_init(eh, maxevents) == NULL) {
