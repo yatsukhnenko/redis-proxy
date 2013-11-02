@@ -1,3 +1,41 @@
 redis-proxy
 ===========
-It's like haproxy except for redis.
+
+It's like haproxy except for redis. It receives requests from clients and separates get and set requests between master and several slaves.
+Set commands are always go to master server. Get commands go to master or one of slaves(chosen by roundrobin). PING and TIME commands are processed locally.
+After redis-proxy start the first server to which was able to connect becomes master(often this is the first server from list of program arguments) and all other servers becomes a slaves. If master fails the first available slave becomes the master. After server recovery it becomes the slave.
+
+# Build
+
+just run make
+
+# Usage
+
+./redis-proxy [-L [address:]port] [-s address[:port] -s address[:port] ... ]
+
+Options:
+    -L : address and port on which redis-proxy accepts connections(default: 0.0.0.0:6379)
+    -s : address and port of redis server instance
+
+
+# Limitations
+
+1. Inline commands and pipelining are not supported at this time
+2. AUTH, ECHO, EVAL, SYNC, DEBUG, CLIENT, CONFIG, SELECT, MIGRATE, MONITOR, PUBLISH, SLAVEOF, SLOWLOG, SHUTDOWN, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE commands are always fails at this time
+3. Low productivity compared to redis server
+   redis-benchmark:
+       PING_INLINE: 71428.57 requests per second
+       PING_BULK: 77519.38 requests per second
+       SET: 2940.31 requests per second
+       GET: 5144.03 requests per second
+       INCR: 3565.06 requests per second
+       LPUSH: 3810.98 requests per second
+       LPOP: 3875.97 requests per second
+       SADD: 4024.15 requests per second
+       SPOP: 4098.36 requests per second
+       LPUSH (needed to benchmark LRANGE): 3872.97 requests per second
+       LRANGE_100 (first 100 elements): 4807.69 requests per second
+       LRANGE_300 (first 300 elements): 2789.40 requests per second
+       LRANGE_500 (first 450 elements): 2543.24 requests per second
+       LRANGE_600 (first 600 elements): 2105.71 requests per second
+       MSET (10 keys): 2643.40 requests per second
