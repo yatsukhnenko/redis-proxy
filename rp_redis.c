@@ -179,14 +179,14 @@ static struct rp_command_proto rp_commands_13[] = {
 };
 
 static struct rp_command_proto rp_commands_15[] = {
-    {"ZREMRANGEBYRANK", RP_MASTER_COMMAND},
-    {NULL, 0}
+    { "ZREMRANGEBYRANK", RP_MASTER_COMMAND, 3, NULL },
+    { NULL,              0,                 0, NULL }
 };
 
 static struct rp_command_proto rp_commands_16[] = {
-    {"ZREMRANGEBYSCORE", RP_MASTER_COMMAND},
-    {"ZREVRANGEBYSCORE", RP_SLAVE_COMMAND},
-    {NULL, 0}
+    { "ZREMRANGEBYSCORE", RP_MASTER_COMMAND, 3, NULL },
+    { "ZREVRANGEBYSCORE", RP_SLAVE_COMMAND, -3, NULL },
+    { NULL, 0}
 };
 
 static struct rp_command_proto *rp_commands[] = {
@@ -212,7 +212,19 @@ struct rp_command_proto *rp_lookup_command(char *name, int length)
 {
     struct rp_command_proto *ptr;
 
-    if(length > 0 && length < sizeof(rp_commands) && (ptr = rp_commands[length - 1]) != NULL) {
+    if(length < 0) {
+        length = 0;
+        while(length < RP_COMMAND_NAME_MAX) {
+            if((name[length] < 'a' || name[length] > 'z') &&
+                (name[length] < 'A' || name[length] > 'Z')) {
+                break;
+            }
+            length++;
+        }
+        if(length > 0 && length < RP_COMMAND_NAME_MAX && (name[length] == ' ' || name[length] == '\r')) {
+            return rp_lookup_command(name, length);
+        }
+    } else if(length > 0 && length < RP_COMMAND_NAME_MAX && (ptr = rp_commands[length - 1]) != NULL) {
         while(ptr->name != NULL) {
             if(strncasecmp(name, ptr->name, length) == 0) {
                 return ptr;

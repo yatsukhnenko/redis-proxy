@@ -5,6 +5,7 @@
 #include "rp_common.h"
 
 #define RP_NULL_LEN          -1
+#define RP_COMMAND_NAME_MAX   16
 
 #define RP_LOCAL_COMMAND      1
 #define RP_MASTER_COMMAND     2

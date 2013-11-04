@@ -20,7 +20,7 @@ Options:
 
 # Limitations
 
-1. Inline commands and pipelining are not supported at this time
+1. Pipelining is not supported at this time
 2. AUTH, ECHO, EVAL, SYNC, DEBUG, CLIENT, CONFIG, SELECT, MIGRATE, MONITOR, PUBLISH, SLAVEOF, SLOWLOG, SHUTDOWN, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE commands are always fails at this time
 3. Low productivity compared to redis server
    redis-benchmark:

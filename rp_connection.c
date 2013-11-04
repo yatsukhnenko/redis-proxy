@@ -323,6 +323,7 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
         eh->del(eh, c->sockfd, &e);
         close(c->sockfd);
         c->sockfd = -1;
+        time(&c->time);
         server->master = NULL;
         server->queue.current = server->queue.last = 0;
         server->buffer.r = server->buffer.w = server->buffer.used = 0;
@@ -498,8 +499,10 @@ int rp_request_parse(rp_buffer_t *buffer, rp_command_t *command)
         if(command->argc < RP_NULL_LEN) {
             command->i = 0;
             if(*b != RP_MULTI_BULK_PREFIX) {
-                /* TODO: inline command */
-                return RP_FAILURE;
+                if((command->proto = rp_lookup_command(b, -1)) == NULL) {
+                    return RP_FAILURE;
+                }
+                return RP_SUCCESS;
             } else {
                 i = 0; b++;
                 while(*b >= '0' && *b <= '9') {
