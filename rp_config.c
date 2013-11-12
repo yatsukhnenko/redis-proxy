@@ -55,6 +55,14 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
             cfg->line++;
         }
     } while(RP_ISSPACE(chr));
+    if(chr == RP_CFG_COMMENT) {
+        while((chr = fgetc(cfg->f)) != EOF) {
+            if(chr == '\n') {
+                cfg->line++;
+                return RP_SUCCESS;
+            }
+        }
+    }
     if(chr == EOF) {
         if(cfg->ctx != RP_CFG_MAIN_CTX) {
             syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
@@ -117,7 +125,7 @@ int rp_config_setting_listen(rp_config_t *cfg, rp_settings_t *s)
             syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
-    } while(chr != ';');
+    } while(chr != RP_CFG_TERMINATION);
     cfg->buffer.s.data[cfg->buffer.used] = '\0';
     if((ptr = strchr(cfg->buffer.s.data, ':')) != NULL) {
         *ptr++ = '\0';
@@ -191,7 +199,7 @@ int rp_config_server_address(rp_config_t *cfg, rp_settings_t *s)
             syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
-    } while(chr != ';');
+    } while(chr != RP_CFG_TERMINATION);
     cfg->buffer.s.data[cfg->buffer.used] = '\0';
     if((he = gethostbyname(cfg->buffer.s.data)) == NULL) {
         syslog(LOG_ERR, "gethostbyname at %s:%d\n", __FILE__, __LINE__);
@@ -229,7 +237,7 @@ int rp_config_server_port(rp_config_t *cfg, rp_settings_t *s)
             syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
-    } while(chr != ';');
+    } while(chr != RP_CFG_TERMINATION);
     cfg->buffer.s.data[cfg->buffer.used] = '\0';
     if((port = rp_config_parse_port(cfg->buffer.s.data)) < 0) {
         syslog(LOG_ERR, "%s:%d invalid port %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);

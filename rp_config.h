@@ -9,6 +9,8 @@
 
 #define RP_CFG_BLOCK_BEGIN '{'
 #define RP_CFG_BLOCK_END   '}'
+#define RP_CFG_TERMINATION ';'
+#define RP_CFG_COMMENT     '#'
 
 #define RP_ISSPACE(c) c == ' ' || c == '\t' || c == '\r' || c == '\n'
 
