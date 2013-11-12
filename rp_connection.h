@@ -1,9 +1,13 @@
 #ifndef _RP_CONNECTION_H_
 #define _RP_CONNECTION_H_
 
-#include <time.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "rp_common.h"
 #include "rp_event.h"
 #include "rp_redis.h"
 #include "rp_queue.h"
@@ -26,7 +30,7 @@ typedef struct {
     time_t time;
     unsigned int flags;
     struct {
-        char address[INET_ADDRSTRLEN];
+        rp_string_t address;
         unsigned short port;
     } hr;
     in_addr_t address;

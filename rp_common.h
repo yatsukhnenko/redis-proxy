@@ -1,6 +1,7 @@
 #ifndef _RP_COMMON_H_
 #define _RP_COMMON_H_
 
+#include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +22,7 @@
 #define RP_DOUBLE_BUFFER_SIZE     8192
 #define RP_CONCURRENT_CONNECTIONS 1024
 
-#define RP_DEFAULT_PORT           0x18EB
+#define RP_DEFAULT_PORT           6379
 
 typedef struct {
     size_t used;
@@ -29,5 +30,7 @@ typedef struct {
     unsigned int r;
     unsigned int w;
 } rp_buffer_t;
+
+int rp_resize_buffer(rp_buffer_t *buffer, int delta);
 
 #endif /* _RP_COMMON_H_ */

@@ -11,11 +11,10 @@ just run make
 
 # Usage
 
-./redis-proxy [-L [address:]port] [-s address[:port] -s address[:port] ... ]
+./redis-proxy -c redis-proxy.conf
 
 Options:
-    -L : address and port on which redis-proxy accepts connections(default: 0.0.0.0:6379)
-    -s : address and port of redis server instance
+    -c : configuration file name
 
 
 # Limitations

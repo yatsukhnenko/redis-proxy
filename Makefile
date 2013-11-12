@@ -1,6 +1,8 @@
-CC=gcc
-CFLAGS=-pipe -O2 -Wall -pedantic -ansi
-OBJ=rp_string.o rp_queue.o rp_socket.o rp_select.o rp_epoll.o rp_kqueue.o rp_event.o rp_redis.o rp_connection.o
+CC := gcc
+CFLAGS := -pipe -O2 -Wall -pedantic -ansi
+OBJ := rp_common.o rp_config.o rp_string.o rp_queue.o \
+       rp_select.o rp_epoll.o rp_kqueue.o rp_event.o  \
+       rp_socket.o rp_redis.o rp_connection.o
 
 .PHONY: all clean
 

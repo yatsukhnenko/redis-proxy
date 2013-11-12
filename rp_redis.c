@@ -175,18 +175,18 @@ static struct rp_command_proto rp_commands_12[] = {
 
 static struct rp_command_proto rp_commands_13[] = {
     { "ZRANGEBYSCORE", RP_SLAVE_COMMAND, -4, NULL },
-    { NULL,            0,                 0, NULL }
+    {  NULL,           0,                 0, NULL }
 };
 
 static struct rp_command_proto rp_commands_15[] = {
     { "ZREMRANGEBYRANK", RP_MASTER_COMMAND, 3, NULL },
-    { NULL,              0,                 0, NULL }
+    {  NULL,             0,                 0, NULL }
 };
 
 static struct rp_command_proto rp_commands_16[] = {
     { "ZREMRANGEBYSCORE", RP_MASTER_COMMAND, 3, NULL },
     { "ZREVRANGEBYSCORE", RP_SLAVE_COMMAND, -3, NULL },
-    { NULL, 0}
+    {  NULL,              0,                 0, NULL }
 };
 
 static struct rp_command_proto *rp_commands[] = {

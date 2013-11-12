@@ -231,7 +231,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             if(master == NULL) {
                                 master = a;
                                 rp_set_slaveof(a, NULL);
-                                syslog(LOG_INFO, "Set %s:%d slave of no one", a->hr.address, a->hr.port);
+                                syslog(LOG_INFO, "Set %s:%d slave of no one", a->hr.address.data, a->hr.port);
                             } else if(!(a->flags & RP_MASTER)) {
                                 if(master->flags & RP_MAINTENANCE) {
                                     /* master is not ready */
@@ -239,8 +239,8 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                 } else if(server->master != master) {
                                     rp_set_slaveof(a, master);
                                     syslog(LOG_INFO, "Set %s:%d slave of %s:%d",
-                                        a->hr.address, a->hr.port,
-                                        master->hr.address, master->hr.port);
+                                        a->hr.address.data, a->hr.port,
+                                        master->hr.address.data, master->hr.port);
                                 }
                             }
                             /* send request to server */
@@ -317,7 +317,7 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
             client->server = NULL;
             rp_connection_close(server->client, eh, s);
         }
-        syslog(LOG_ERR, "Close connection to %s:%d", c->hr.address, c->hr.port);
+        syslog(LOG_ERR, "Close connection to %s:%d", c->hr.address.data, c->hr.port);
         e.data = c;
         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
         eh->del(eh, c->sockfd, &e);
@@ -381,7 +381,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         if(connect(c->sockfd, (const struct sockaddr *)&addr, sizeof(addr))) {
             if(errno != EINPROGRESS) {
                 syslog(LOG_NOTICE, "Could not connect to Redis at %s:%d: %s",
-                    c->hr.address, c->hr.port, strerror(errno));
+                    c->hr.address.data, c->hr.port, strerror(errno));
                 close(c->sockfd);
                 c->sockfd = -1;
                 return NULL;
@@ -394,7 +394,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         } else if(optval) {
             if(optval != EALREADY) {
                 syslog(LOG_NOTICE, "Could not connect to Redis at %s:%d: %s",
-                    c->hr.address, c->hr.port, strerror(optval));
+                    c->hr.address.data, c->hr.port, strerror(optval));
                 close(c->sockfd);
                 c->sockfd = -1;
                 return NULL;
@@ -402,7 +402,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         } else {
             /* connection has been established successfully */
             c->flags |= RP_ESTABLISHED;
-            syslog(LOG_NOTICE, "Successfully connected to %s:%d", c->hr.address, c->hr.port);
+            syslog(LOG_NOTICE, "Successfully connected to %s:%d", c->hr.address.data, c->hr.port);
         }
     }
     return c;
@@ -461,7 +461,7 @@ void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m)
     } else {
         server->buffer.used = sprintf(server->buffer.s.data,
             "*3\r\n$7\r\nSLAVEOF\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
-            (int)strlen(m->hr.address), m->hr.address,
+            m->hr.address.length, m->hr.address.data,
             sprintf(b, "%u", m->hr.port), b);
         c->flags &= ~RP_MASTER;
     }
