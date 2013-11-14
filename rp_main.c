@@ -43,8 +43,6 @@ int main(int argc, char **argv)
     s.listen = &l;
     s.servers = &pool;
 
-    openlog(NULL, LOG_PID, LOG_USER);
-
     if(filename != NULL) {
         if(rp_config_file_parse(filename, &s) != RP_SUCCESS) {
             return EXIT_FAILURE;
@@ -58,13 +56,15 @@ int main(int argc, char **argv)
         if(pid > 0) {
             return EXIT_SUCCESS;
         }
-        syslog(LOG_ERR, "fork at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
+        fprintf(stderr, "fork at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
         return EXIT_FAILURE;
     }
+
     if(!getuid()) {
         pw = getpwnam("nobody");
     }
     setsid();
+    openlog(NULL, LOG_PID, LOG_USER);
     if(rp_listen(&l.sockfd, l.address, l.port) == NULL) {
         return EXIT_FAILURE;
     }

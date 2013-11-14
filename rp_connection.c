@@ -461,7 +461,7 @@ void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m)
     } else {
         server->buffer.used = sprintf(server->buffer.s.data,
             "*3\r\n$7\r\nSLAVEOF\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
-            m->hr.address.length, m->hr.address.data,
+            (int)m->hr.address.length, m->hr.address.data,
             sprintf(b, "%u", m->hr.port), b);
         c->flags &= ~RP_MASTER;
     }

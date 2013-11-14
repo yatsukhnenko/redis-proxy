@@ -24,7 +24,7 @@ int rp_config_file_parse(char *filename, rp_settings_t *s)
     rp_config_t cfg;
 
     if((cfg.f = fopen(filename, "r")) == NULL) {
-        syslog(LOG_ERR, "fopen at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+        fprintf(stderr, "fopen at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return RP_FAILURE;
     }
     cfg.line = 1;
@@ -65,13 +65,13 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
     }
     if(chr == EOF) {
         if(cfg->ctx != RP_CFG_MAIN_CTX) {
-            syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
+            fprintf(stderr, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
         return RP_SUCCESS;
     } else if(chr == RP_CFG_BLOCK_END) {
         if(cfg->ctx != RP_CFG_SRV_CTX) {
-            syslog(LOG_ERR, "%s:%d syntax error\n", cfg->filename, cfg->line);
+            fprintf(stderr, "%s:%d syntax error\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
         cfg->ctx = RP_CFG_MAIN_CTX;
@@ -82,6 +82,10 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
         chr = fgetc(cfg->f);
     }
     name[i] = '\0';
+    if(!RP_ISSPACE(chr)) {
+        fprintf(stderr, "%s:%d syntax error\n", cfg->filename, cfg->line);
+        return RP_FAILURE;
+    }
     cmd = commands[cfg->ctx];
     while(cmd->name != NULL) {
         if(strcmp(name, cmd->name) == 0) {
@@ -89,12 +93,8 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
         }
         cmd++;
     }
-    if(cmd == NULL || !RP_ISSPACE(chr)) {
-        syslog(LOG_ERR, "%s:%d syntax error\n", cfg->filename, cfg->line);
-        return RP_FAILURE;
-    }
-    if(cmd->set == NULL) {
-        syslog(LOG_ERR, "%s:%d\n", cfg->filename, cfg->line);
+    if(cmd->name == NULL) {
+        fprintf(stderr, "%s:%d unknown command %s\n", cfg->filename, cfg->line, name);
         return RP_FAILURE;
     }
     return cmd->set(cfg, s);
@@ -102,35 +102,17 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
 
 int rp_config_setting_listen(rp_config_t *cfg, rp_settings_t *s)
 {
-    int chr, port;
+    int port;
     char *ptr, *ip = "0.0.0.0";
     struct in_addr addr = { INADDR_ANY };
-    do {
-        if((chr = fgetc(cfg->f)) == '\n') {
-            cfg->line++;
-        }
-    } while(RP_ISSPACE(chr));
-    if(chr == EOF) {
-        syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
+
+    if(rp_config_read_value(cfg) != RP_SUCCESS) {
         return RP_FAILURE;
     }
-    do {
-        if(cfg->buffer.used + 1 > cfg->buffer.s.length) {
-            if(rp_resize_buffer(&cfg->buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
-                return RP_FAILURE;
-            }
-        }
-        cfg->buffer.s.data[cfg->buffer.used++] = chr;
-        if((chr = fgetc(cfg->f)) == EOF) {
-            syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
-            return RP_FAILURE;
-        }
-    } while(chr != RP_CFG_TERMINATION);
-    cfg->buffer.s.data[cfg->buffer.used] = '\0';
     if((ptr = strchr(cfg->buffer.s.data, ':')) != NULL) {
         *ptr++ = '\0';
         if(!inet_pton(AF_INET, cfg->buffer.s.data, &addr)) {
-            syslog(LOG_ERR, "%s:%d invalid address %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
+            fprintf(stderr, "%s:%d invalid address %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
             return RP_FAILURE;
         }
         ip = cfg->buffer.s.data;
@@ -138,7 +120,7 @@ int rp_config_setting_listen(rp_config_t *cfg, rp_settings_t *s)
         ptr = cfg->buffer.s.data;
     }
     if((port = rp_config_parse_port(ptr)) < 0) {
-        syslog(LOG_ERR, "%s:%d invalid port %s\n", cfg->filename, cfg->line, ptr);
+        fprintf(stderr, "%s:%d invalid port %s\n", cfg->filename, cfg->line, ptr);
         return RP_FAILURE;
     }
     s->listen->address = addr.s_addr;
@@ -158,11 +140,11 @@ int rp_config_setting_server(rp_config_t *cfg, rp_settings_t *s)
         }
     } while(RP_ISSPACE(chr));
     if(chr != RP_CFG_BLOCK_BEGIN) {
-        syslog(LOG_ERR, "%s:%d syntax error\n", cfg->filename, cfg->line);
+        fprintf(stderr, "%s:%d syntax error\n", cfg->filename, cfg->line);
         return RP_FAILURE;
     }
     if((s->servers->c = realloc(s->servers->c, ++s->servers->size * sizeof(rp_connection_t))) == NULL) {
-        syslog(LOG_ERR, "realloc at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
+        fprintf(stderr, "realloc at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
         return RP_FAILURE;
     }
     cfg->ctx = RP_CFG_SRV_CTX;
@@ -176,33 +158,14 @@ int rp_config_setting_server(rp_config_t *cfg, rp_settings_t *s)
 
 int rp_config_server_address(rp_config_t *cfg, rp_settings_t *s)
 {
-    int chr;
     struct in_addr *in;
     struct hostent *he;
-    do {
-        if((chr = fgetc(cfg->f)) == '\n') {
-            cfg->line++;
-        }
-    } while(RP_ISSPACE(chr));
-    if(chr == EOF) {
-        syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
+
+    if(rp_config_read_value(cfg) != RP_SUCCESS) {
         return RP_FAILURE;
     }
-    do {
-        if(cfg->buffer.used + 1 > cfg->buffer.s.length) {
-            if(rp_resize_buffer(&cfg->buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
-                return RP_FAILURE;
-            }
-        }
-        cfg->buffer.s.data[cfg->buffer.used++] = chr;
-        if((chr = fgetc(cfg->f)) == EOF) {
-            syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
-            return RP_FAILURE;
-        }
-    } while(chr != RP_CFG_TERMINATION);
-    cfg->buffer.s.data[cfg->buffer.used] = '\0';
     if((he = gethostbyname(cfg->buffer.s.data)) == NULL) {
-        syslog(LOG_ERR, "gethostbyname at %s:%d\n", __FILE__, __LINE__);
+        fprintf(stderr, "gethostbyname at %s:%d\n", __FILE__, __LINE__);
         return RP_FAILURE;
     }
     in = (struct in_addr *)he->h_addr_list[0];
@@ -216,14 +179,30 @@ int rp_config_server_address(rp_config_t *cfg, rp_settings_t *s)
 
 int rp_config_server_port(rp_config_t *cfg, rp_settings_t *s)
 {
-    int chr, port;
+    int port;
+    if(rp_config_read_value(cfg) != RP_SUCCESS) {
+        return RP_FAILURE;
+    }
+    if((port = rp_config_parse_port(cfg->buffer.s.data)) < 0) {
+        fprintf(stderr, "%s:%d invalid port %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
+        return RP_FAILURE;
+    }
+    s->servers->c[s->servers->size - 1].port = htons(port);
+    s->servers->c[s->servers->size - 1].hr.port = port;
+    return RP_SUCCESS;
+}
+
+
+int rp_config_read_value(rp_config_t *cfg)
+{
+    int chr;
     do {
         if((chr = fgetc(cfg->f)) == '\n') {
             cfg->line++;
         }
     } while(RP_ISSPACE(chr));
     if(chr == EOF) {
-        syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
+        fprintf(stderr, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
         return RP_FAILURE;
     }
     do {
@@ -234,17 +213,11 @@ int rp_config_server_port(rp_config_t *cfg, rp_settings_t *s)
         }
         cfg->buffer.s.data[cfg->buffer.used++] = chr;
         if((chr = fgetc(cfg->f)) == EOF) {
-            syslog(LOG_ERR, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
+            fprintf(stderr, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
     } while(chr != RP_CFG_TERMINATION);
     cfg->buffer.s.data[cfg->buffer.used] = '\0';
-    if((port = rp_config_parse_port(cfg->buffer.s.data)) < 0) {
-        syslog(LOG_ERR, "%s:%d invalid port %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
-        return RP_FAILURE;
-    }
-    s->servers->c[s->servers->size - 1].port = htons(port);
-    s->servers->c[s->servers->size - 1].hr.port = port;
     return RP_SUCCESS;
 }
 
