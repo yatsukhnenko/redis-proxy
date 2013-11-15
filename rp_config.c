@@ -195,29 +195,47 @@ int rp_config_server_port(rp_config_t *cfg, rp_settings_t *s)
 
 int rp_config_read_value(rp_config_t *cfg)
 {
-    int chr;
+    int chr, qq = 0;
     do {
         if((chr = fgetc(cfg->f)) == '\n') {
             cfg->line++;
         }
     } while(RP_ISSPACE(chr));
-    if(chr == EOF) {
-        fprintf(stderr, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
-        return RP_FAILURE;
+    if(chr == '"') {
+        qq = 1;
+        chr = fgetc(cfg->f);
     }
-    do {
+    while(chr != EOF) {
+        if(qq) {
+            if(chr == '"') {
+                chr = fgetc(cfg->f);
+                break;
+            }
+        } else if(chr == RP_CFG_TERMINATION || RP_ISSPACE(chr)) {
+            break;
+        }
         if(cfg->buffer.used + 1 > cfg->buffer.s.length) {
             if(rp_resize_buffer(&cfg->buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
                 return RP_FAILURE;
             }
         }
         cfg->buffer.s.data[cfg->buffer.used++] = chr;
-        if((chr = fgetc(cfg->f)) == EOF) {
-            fprintf(stderr, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
-            return RP_FAILURE;
+        chr = fgetc(cfg->f);
+    }
+    while(RP_ISSPACE(chr)) {
+        if(chr == '\n') {
+            cfg->line++;
         }
-    } while(chr != RP_CFG_TERMINATION);
+        chr = fgetc(cfg->f);
+    }
     cfg->buffer.s.data[cfg->buffer.used] = '\0';
+    if(chr == EOF) {
+        fprintf(stderr, "%s:%d unexpected EOF\n", cfg->filename, cfg->line);
+        return RP_FAILURE;
+    } else if(chr != RP_CFG_TERMINATION) {
+        fprintf(stderr, "%s:%d syntax error\n", cfg->filename, cfg->line);
+        return RP_FAILURE;
+    }
     return RP_SUCCESS;
 }
 

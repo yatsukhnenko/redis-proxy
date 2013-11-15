@@ -12,7 +12,7 @@
 #define RP_CFG_TERMINATION ';'
 #define RP_CFG_COMMENT     '#'
 
-#define RP_ISSPACE(c) c == ' ' || c == '\t' || c == '\r' || c == '\n'
+#define RP_ISSPACE(c) (c == ' ' || c == '\t' || c == '\r' || c == '\n')
 
 typedef struct {
     rp_connection_t *listen;
