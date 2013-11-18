@@ -1,7 +1,7 @@
 #include "rp_redis.h"
 #include "rp_connection.h"
 
-static struct rp_command_proto rp_commands_3[] = {
+static rp_command_proto_t rp_commands_3[] = {
     { "DEL", RP_MASTER_COMMAND, -2, NULL },
     { "GET", RP_SLAVE_COMMAND,   2, NULL },
     { "SET", RP_MASTER_COMMAND, -3, NULL },
@@ -9,7 +9,7 @@ static struct rp_command_proto rp_commands_3[] = {
     {  NULL, 0,                  0, NULL }
 };
 
-static struct rp_command_proto rp_commands_4[] = {
+static rp_command_proto_t rp_commands_4[] = {
     { "AUTH", RP_LOCAL_COMMAND,   2, rp_command_error },
     { "DECR", RP_MASTER_COMMAND,  2, NULL             },
     { "DUMP", RP_SLAVE_COMMAND,   2, NULL             },
@@ -47,7 +47,7 @@ static struct rp_command_proto rp_commands_4[] = {
     {  NULL,  0,                  0, NULL             }
 };
 
-static struct rp_command_proto rp_commands_5[] = {
+static rp_command_proto_t rp_commands_5[] = {
     { "BITOP", RP_MASTER_COMMAND, -4, NULL             },
     { "BLPOP", RP_MASTER_COMMAND, -3, NULL             },
     { "BRPOP", RP_MASTER_COMMAND, -3, NULL             },
@@ -71,7 +71,7 @@ static struct rp_command_proto rp_commands_5[] = {
     {  NULL, 0,                    1, NULL             }
 };
 
-static struct rp_command_proto rp_commands_6[] = {
+static rp_command_proto_t rp_commands_6[] = {
     { "APPEND", RP_MASTER_COMMAND,  3, NULL             },
     { "BGSAVE", RP_SLAVE_COMMAND,   1, NULL             },
     { "CLIENT", RP_LOCAL_COMMAND,  -2, rp_command_error },
@@ -105,7 +105,7 @@ static struct rp_command_proto rp_commands_6[] = {
     {  NULL,    0,                  1, NULL             }
 };
 
-static struct rp_command_proto rp_commands_7[] = {
+static rp_command_proto_t rp_commands_7[] = {
     { "DISCARD", RP_MASTER_COMMAND,  1, NULL             },
     { "EVALSHA", RP_MASTER_COMMAND, -4, NULL             },
     { "FLUSHDB", RP_MASTER_COMMAND,  1, NULL             },
@@ -125,7 +125,7 @@ static struct rp_command_proto rp_commands_7[] = {
     {  NULL,     0,                  0, NULL             }
 };
 
-static struct rp_command_proto rp_commands_8[] = {
+static rp_command_proto_t rp_commands_8[] = {
     { "BITCOUNT", RP_SLAVE_COMMAND, -2, NULL             },
     { "EXPIREAT", RP_MASTER_COMMAND, 3, NULL             },
     { "FLUSHALL", RP_MASTER_COMMAND, 1, NULL             },
@@ -139,7 +139,7 @@ static struct rp_command_proto rp_commands_8[] = {
     {  NULL,      0,                 0, 0                }
 };
 
-static struct rp_command_proto rp_commands_9[] = {
+static rp_command_proto_t rp_commands_9[] = {
     { "PEXPIREAT", RP_MASTER_COMMAND, 3, NULL             },
     { "RANDOMKEY", RP_SLAVE_COMMAND,  1, NULL             },
     { "RPOPLPUSH", RP_MASTER_COMMAND, 3, NULL             },
@@ -149,14 +149,14 @@ static struct rp_command_proto rp_commands_9[] = {
     {  NULL,       0,                 0, NULL             }
 };
 
-static struct rp_command_proto rp_commands_10[] = {
+static rp_command_proto_t rp_commands_10[] = {
     { "BRPOPLPUSH", RP_MASTER_COMMAND,  4, NULL             },
     { "PSUBSCRIBE", RP_LOCAL_COMMAND,  -2, rp_command_error },
     { "SDIFFSTORE", RP_MASTER_COMMAND, -3, NULL             },
     {  NULL,        0,                  0, NULL             }
 };
 
-static struct rp_command_proto rp_commands_11[] = {
+static rp_command_proto_t rp_commands_11[] = {
     { "INCRBYFLOAT", RP_MASTER_COMMAND,  3, NULL             },
     { "SINTERSTORE", RP_MASTER_COMMAND, -3, NULL             },
     { "SRANDMEMBER", RP_SLAVE_COMMAND,  -2, NULL             },
@@ -166,30 +166,30 @@ static struct rp_command_proto rp_commands_11[] = {
     {  NULL,         0,                  0, NULL             }
 };
 
-static struct rp_command_proto rp_commands_12[] = {
+static rp_command_proto_t rp_commands_12[] = {
     { "BGREWRITEAOF", RP_SLAVE_COMMAND,  1, NULL             },
     { "HINCRBYFLOAT", RP_MASTER_COMMAND, 4, NULL             },
     { "PUNSUBSCRIBE", RP_LOCAL_COMMAND, -1, rp_command_error },
     {  NULL,          0,                 0, NULL             }
 };
 
-static struct rp_command_proto rp_commands_13[] = {
+static rp_command_proto_t rp_commands_13[] = {
     { "ZRANGEBYSCORE", RP_SLAVE_COMMAND, -4, NULL },
     {  NULL,           0,                 0, NULL }
 };
 
-static struct rp_command_proto rp_commands_15[] = {
+static rp_command_proto_t rp_commands_15[] = {
     { "ZREMRANGEBYRANK", RP_MASTER_COMMAND, 3, NULL },
     {  NULL,             0,                 0, NULL }
 };
 
-static struct rp_command_proto rp_commands_16[] = {
+static rp_command_proto_t rp_commands_16[] = {
     { "ZREMRANGEBYSCORE", RP_MASTER_COMMAND, 3, NULL },
     { "ZREVRANGEBYSCORE", RP_SLAVE_COMMAND, -3, NULL },
     {  NULL,              0,                 0, NULL }
 };
 
-static struct rp_command_proto *rp_commands[] = {
+static rp_command_proto_t *rp_commands[] = {
     NULL,
     NULL,
     rp_commands_3,
@@ -208,9 +208,9 @@ static struct rp_command_proto *rp_commands[] = {
     rp_commands_16
 };
 
-struct rp_command_proto *rp_lookup_command(char *name, int length)
+rp_command_proto_t *rp_lookup_command(char *name, int length)
 {
-    struct rp_command_proto *ptr;
+    rp_command_proto_t *ptr;
 
     if(length < 0) {
         length = 0;

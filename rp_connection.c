@@ -70,11 +70,11 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             continue;
                         }
                         if((j = rp_request_parse(&client->buffer, &client->command)) != RP_UNKNOWN) {
+                            e.data = a;
+                            e.events = RP_EVENT_READ;
+                            eh->del(eh, a->sockfd, &e);
                             if(j == RP_SUCCESS) {
                                 if(client->command.proto->flags & RP_LOCAL_COMMAND) {
-                                    e.data = a;
-                                    e.events = RP_EVENT_READ;
-                                    eh->del(eh, a->sockfd, &e);
                                     client->command.proto->handler(a);
                                     e.data = a;
                                     e.events = RP_EVENT_WRITE;
@@ -95,9 +95,6 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     rp_connection_close(a, eh, s);
                                     continue;
                                 }
-                                e.data = a;
-                                e.events = RP_EVENT_READ;
-                                eh->del(eh, a->sockfd, &e);
                                 client->server = c;
                                 server = c->data;
                                 if(!(c->flags & RP_MAINTENANCE) && server->client == NULL) {
@@ -109,9 +106,6 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     rp_queue_push(&server->queue, a);
                                 }
                             } else {
-                                e.data = a;
-                                e.events = RP_EVENT_READ;
-                                eh->del(eh, a->sockfd, &e);
                                 client->buffer.r = client->buffer.w = 0;
                                 client->buffer.used = sprintf(client->buffer.s.data, "-Protocol error\r\n");
                                 e.data = a;

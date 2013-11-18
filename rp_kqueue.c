@@ -57,13 +57,13 @@ int rp_kqueue_del(struct rp_event_handler *eh, int sockfd, rp_event_t *e)
     struct kevent event[2];
     rp_kqueue_data_t *kd = eh->data;
 
-    if(e->events & RP_EVENT_READ) {
+    if(e->events & RP_EVENT_READ && eh->events[sockfd].events & RP_EVENT_READ) {
         EV_SET(&event[i++], sockfd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
     }
-    if(e->events & RP_EVENT_WRITE) {
+    if(e->events & RP_EVENT_WRITE && eh->events[sockfd].events & RP_EVENT_WRITE) {
         EV_SET(&event[i++], sockfd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
     }
-    if(kevent(kd->kqfd, event, i, NULL, 0, NULL) < 0) {
+    if(i && kevent(kd->kqfd, event, i, NULL, 0, NULL) < 0) {
         syslog(LOG_ERR, "kevent at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return RP_FAILURE;
     }

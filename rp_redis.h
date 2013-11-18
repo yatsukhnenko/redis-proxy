@@ -17,12 +17,12 @@
 #define RP_ERROR_PREFIX      '-'
 #define RP_INTEGER_PREFIX    ':'
 
-struct rp_command_proto {
+typedef struct {
     char *name;
     unsigned int flags;
     int argc;
     void (*handler)(void *data);
-};
+} rp_command_proto_t;
 
 typedef struct {
     int argc;
@@ -31,10 +31,10 @@ typedef struct {
         int length;
     } argv;
     unsigned int i;
-    struct rp_command_proto *proto;
+    rp_command_proto_t *proto;
 } rp_command_t;
 
-struct rp_command_proto *rp_lookup_command(char *name, int length);
+rp_command_proto_t *rp_lookup_command(char *name, int length);
 void rp_command_ping(void *data);
 void rp_command_quit(void *data);
 void rp_command_time(void *data);
