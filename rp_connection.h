@@ -51,7 +51,6 @@ typedef struct {
 } rp_client_t;
 
 typedef struct {
-    rp_queue_t queue;
     rp_buffer_t buffer;
     rp_connection_t *client;
     rp_connection_t *master;

@@ -10,9 +10,17 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
     int i, j, ready;
     rp_client_t *client;
     rp_server_t *server;
+    rp_queue_t qget, qset;
     struct timeval timeout;
     rp_connection_t *c, *a;
     rp_event_handler_t *eh = NULL;
+
+    /* initialize queue */
+    if(rp_queue_init(&qget, RP_CONCURRENT_CONNECTIONS) == NULL ||
+        rp_queue_init(&qset, RP_CONCURRENT_CONNECTIONS) == NULL
+    ) {
+        return EXIT_FAILURE;
+    }
 
     /* initialize event handler object */
     if((eh = rp_event_handler_init(NULL, RP_CONCURRENT_CONNECTIONS + s->size + 1)) == NULL) {
@@ -82,8 +90,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     continue;
                                 }
                                 if(client->command.proto->flags & RP_MASTER_COMMAND) {
-                                    c = master;
-                                    if(master == NULL) {
+                                    if((c = master) == NULL) {
                                         for(j = 0; j < s->size; j++) {
                                             s->c[j].time = 0;
                                         }
@@ -103,7 +110,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     e.events = RP_EVENT_WRITE;
                                     eh->add(eh, c->sockfd, &e);
                                 } else {
-                                    rp_queue_push(&server->queue, a);
+                                    rp_queue_push(client->command.proto->flags & RP_MASTER_COMMAND ? &qset : &qget, a);
                                 }
                             } else {
                                 client->buffer.r = client->buffer.w = 0;
@@ -158,7 +165,14 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     e.data = a;
                                     e.events = RP_EVENT_READ;
                                     eh->del(eh, a->sockfd, &e);
-                                    if((server->client = rp_queue_shift(&server->queue)) != NULL) {
+                                    if(a->flags & RP_MASTER) {
+                                        if((server->client = rp_queue_shift(&qset)) == NULL) {
+                                            server->client = rp_queue_shift(&qget);
+                                        }
+                                    } else {
+                                        server->client = rp_queue_shift(&qget);
+                                    }
+                                    if(server->client != NULL) {
                                         e.data = a;
                                         e.events = RP_EVENT_WRITE;
                                         eh->add(eh, a->sockfd, &e);
@@ -180,7 +194,14 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     e.data = a;
                                     e.events = RP_EVENT_READ;
                                     eh->del(eh, a->sockfd, &e);
-                                    if((server->client = rp_queue_shift(&server->queue)) != NULL) {
+                                    if(a->flags & RP_MASTER) {
+                                        if((server->client = rp_queue_shift(&qset)) == NULL) {
+                                            server->client = rp_queue_shift(&qget);
+                                        }
+                                    } else {
+                                        server->client = rp_queue_shift(&qget);
+                                    }
+                                    if(server->client != NULL) {
                                         /* handle next client */
                                         e.data = a;
                                         e.events = RP_EVENT_WRITE;
@@ -306,11 +327,7 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
             client->server = NULL;
             rp_connection_close(server->client, eh, s);
         }
-        while((server->client = rp_queue_shift(&server->queue)) != NULL) {
-            client = server->client->data;
-            client->server = NULL;
-            rp_connection_close(server->client, eh, s);
-        }
+        server->client = NULL;
         syslog(LOG_ERR, "Close connection to %s:%d", c->hr.address.data, c->hr.port);
         e.data = c;
         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
@@ -319,7 +336,6 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
         c->sockfd = -1;
         time(&c->time);
         server->master = NULL;
-        server->queue.current = server->queue.last = 0;
         server->buffer.r = server->buffer.w = server->buffer.used = 0;
         c->flags = RP_SERVER;
     }
@@ -344,12 +360,6 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         }
         server->client = NULL;
         server->master = NULL;
-        if(!server->queue.size) {
-            /* initialize queue */
-            if(rp_queue_init(&server->queue, RP_CONCURRENT_CONNECTIONS) == NULL) {
-                return NULL;
-            }
-        }
         if(server->buffer.s.data == NULL) {
             /* initialize buffer */
             server->buffer.s.length = RP_DOUBLE_BUFFER_SIZE;
@@ -466,18 +476,18 @@ void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m)
 
 rp_connection_t *rp_server_lookup(rp_connection_pool_t *s)
 {
-    int i = 0;
+    int i;
 
-    while(i++ < s->size) {
+    for(i = 0; i < s->size; i++) {
         if(s->i == s->size) {
             s->i = 0;
         }
-        if(s->c[i].sockfd >= 0 && s->c[s->i].flags & RP_ESTABLISHED) {
-            break;
+        if(s->c[s->i].sockfd >= 0 && s->c[s->i].flags & RP_ESTABLISHED) {
+            return &s->c[s->i++];
         }
         s->i++;
     }
-    return i < s->size + 1 ? &s->c[s->i++] : NULL;
+    return NULL;
 }
 
 int rp_request_parse(rp_buffer_t *buffer, rp_command_t *command)

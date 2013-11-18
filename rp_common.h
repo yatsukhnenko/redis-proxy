@@ -16,7 +16,7 @@
 #define RP_UNKNOWN  0
 #define RP_SUCCESS  1
 
-#define RP_TIMEOUT                10
+#define RP_TIMEOUT                1
 
 #define RP_BUFFER_SIZE            4096
 #define RP_DOUBLE_BUFFER_SIZE     8192
