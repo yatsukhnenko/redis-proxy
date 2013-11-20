@@ -8,8 +8,8 @@
 
 int main(int argc, char **argv)
 {
-    int i;
     pid_t pid;
+    int i, tc = 0;
     rp_settings_t s;
     rp_connection_t l = { 0 };
     struct passwd *pw = NULL;
@@ -21,6 +21,8 @@ int main(int argc, char **argv)
         ptr = argv[i];
         if(*ptr == '-' && (c = *++ptr) != '\0' && *++ptr == '\0') {
             switch(c) {
+                case 't':
+                    tc = 1;
                 case 'c':
                     if(i + 1 < argc) {
                         filename = argv[++i];
@@ -29,11 +31,13 @@ int main(int argc, char **argv)
                     break;
             }
         }
-        fprintf(stderr, "Usage: %s -c redis-proxy.conf\n", argv[0]);
+        fprintf(stderr, "Usage: %s -[ct] redis-proxy.conf\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     l.sockfd = -1;
+    l.auth.data = NULL;
+    l.auth.length = RP_NULL_LEN;
     l.address = addr.s_addr;
     l.hr.address.data = "0.0.0.0";
     l.hr.address.length = strlen(l.hr.address.data);
@@ -47,9 +51,13 @@ int main(int argc, char **argv)
         if(rp_config_file_parse(filename, &s) != RP_SUCCESS) {
             return EXIT_FAILURE;
         }
+        if(tc) {
+            printf("%s: Syntax OK\n", filename);
+            return EXIT_SUCCESS;
+        }
     }
     if(!pool.size) {
-        syslog(LOG_ERR, "at least one server must be specified\n");
+        fprintf(stderr, "at least one server must be specified\n");
         return EXIT_FAILURE;
     }
     if((pid = fork()) != 0) {

@@ -10,41 +10,41 @@ static rp_command_proto_t rp_commands_3[] = {
 };
 
 static rp_command_proto_t rp_commands_4[] = {
-    { "AUTH", RP_LOCAL_COMMAND,   2, rp_command_error },
-    { "DECR", RP_MASTER_COMMAND,  2, NULL             },
-    { "DUMP", RP_SLAVE_COMMAND,   2, NULL             },
-    { "ECHO", RP_LOCAL_COMMAND,   2, rp_command_error },
-    { "EVAL", RP_LOCAL_COMMAND,  -3, rp_command_error },
-    { "EXEC", RP_MASTER_COMMAND,  1, NULL             },
-    { "HDEL", RP_MASTER_COMMAND, -4, NULL             },
-    { "HGET", RP_SLAVE_COMMAND,   3, NULL             },
-    { "HLEN", RP_SLAVE_COMMAND,   2, NULL             },
-    { "HSET", RP_MASTER_COMMAND,  4, NULL             },
-    { "INCR", RP_MASTER_COMMAND,  2, NULL             },
-    { "INFO", RP_MASTER_COMMAND,  2, NULL             },
-    { "KEYS", RP_SLAVE_COMMAND,   2, NULL             },
-    { "LLEN", RP_SLAVE_COMMAND,   2, NULL             },
-    { "LPOP", RP_MASTER_COMMAND,  2, NULL             },
-    { "LREM", RP_MASTER_COMMAND,  4, NULL             },
-    { "LSET", RP_MASTER_COMMAND,  4, NULL             },
-    { "MGET", RP_SLAVE_COMMAND,  -2, NULL             },
-    { "MOVE", RP_MASTER_COMMAND,  3, NULL             },
-    { "MSET", RP_MASTER_COMMAND, -3, NULL             },
-    { "PING", RP_LOCAL_COMMAND,   1, rp_command_ping  },
-    { "PTTL", RP_SLAVE_COMMAND,   2, NULL             },
-    { "QUIT", RP_LOCAL_COMMAND,   1, rp_command_quit  },
-    { "RPOP", RP_MASTER_COMMAND,  2, NULL             },
-    { "SADD", RP_MASTER_COMMAND, -3, NULL             },
-    { "SAVE", RP_SLAVE_COMMAND,   1, NULL             },
-    { "SORT", RP_SLAVE_COMMAND,  -2, NULL             },
-    { "SPOP", RP_MASTER_COMMAND,  2, NULL             },
-    { "SREM", RP_MASTER_COMMAND, -3, NULL             },
-    { "SYNC", RP_LOCAL_COMMAND,   1, rp_command_error },
-    { "TIME", RP_LOCAL_COMMAND,   1, rp_command_time  },
-    { "TYPE", RP_SLAVE_COMMAND,   2, NULL             },
-    { "ZADD", RP_MASTER_COMMAND, -4, NULL             },
-    { "ZREM", RP_MASTER_COMMAND, -3, NULL             },
-    {  NULL,  0,                  0, NULL             }
+    { "AUTH", RP_LOCAL_COMMAND|RP_WITHOUT_AUTH, 2, rp_command_auth  },
+    { "DECR", RP_MASTER_COMMAND,                2, NULL             },
+    { "DUMP", RP_SLAVE_COMMAND,                 2, NULL             },
+    { "ECHO", RP_LOCAL_COMMAND,                 2, rp_command_error },
+    { "EVAL", RP_LOCAL_COMMAND,                -3, rp_command_error },
+    { "EXEC", RP_MASTER_COMMAND,                1, NULL             },
+    { "HDEL", RP_MASTER_COMMAND,               -4, NULL             },
+    { "HGET", RP_SLAVE_COMMAND,                 3, NULL             },
+    { "HLEN", RP_SLAVE_COMMAND,                 2, NULL             },
+    { "HSET", RP_MASTER_COMMAND,                4, NULL             },
+    { "INCR", RP_MASTER_COMMAND,                2, NULL             },
+    { "INFO", RP_MASTER_COMMAND,                2, NULL             },
+    { "KEYS", RP_SLAVE_COMMAND,                 2, NULL             },
+    { "LLEN", RP_SLAVE_COMMAND,                 2, NULL             },
+    { "LPOP", RP_MASTER_COMMAND,                2, NULL             },
+    { "LREM", RP_MASTER_COMMAND,                4, NULL             },
+    { "LSET", RP_MASTER_COMMAND,                4, NULL             },
+    { "MGET", RP_SLAVE_COMMAND,                -2, NULL             },
+    { "MOVE", RP_MASTER_COMMAND,                3, NULL             },
+    { "MSET", RP_MASTER_COMMAND,               -3, NULL             },
+    { "PING", RP_LOCAL_COMMAND,                 1, rp_command_ping  },
+    { "PTTL", RP_SLAVE_COMMAND,                 2, NULL             },
+    { "QUIT", RP_LOCAL_COMMAND|RP_WITHOUT_AUTH, 1, rp_command_quit  },
+    { "RPOP", RP_MASTER_COMMAND,                2, NULL             },
+    { "SADD", RP_MASTER_COMMAND,               -3, NULL             },
+    { "SAVE", RP_SLAVE_COMMAND,                 1, NULL             },
+    { "SORT", RP_SLAVE_COMMAND,                -2, NULL             },
+    { "SPOP", RP_MASTER_COMMAND,                2, NULL             },
+    { "SREM", RP_MASTER_COMMAND,               -3, NULL             },
+    { "SYNC", RP_LOCAL_COMMAND,                 1, rp_command_error },
+    { "TIME", RP_LOCAL_COMMAND,                 1, rp_command_time  },
+    { "TYPE", RP_SLAVE_COMMAND,                 2, NULL             },
+    { "ZADD", RP_MASTER_COMMAND,               -4, NULL             },
+    { "ZREM", RP_MASTER_COMMAND,               -3, NULL             },
+    {  NULL,  0,                                0, NULL             }
 };
 
 static rp_command_proto_t rp_commands_5[] = {
@@ -208,31 +208,38 @@ static rp_command_proto_t *rp_commands[] = {
     rp_commands_16
 };
 
-rp_command_proto_t *rp_lookup_command(char *name, int length)
+rp_command_proto_t *rp_command_lookup(rp_string_t *name)
 {
     rp_command_proto_t *ptr;
 
-    if(length < 0) {
-        length = 0;
-        while(length < RP_COMMAND_NAME_MAX) {
-            if((name[length] < 'a' || name[length] > 'z') &&
-                (name[length] < 'A' || name[length] > 'Z')) {
-                break;
-            }
-            length++;
-        }
-        if(length > 0 && length < RP_COMMAND_NAME_MAX && (name[length] == ' ' || name[length] == '\r')) {
-            return rp_lookup_command(name, length);
-        }
-    } else if(length > 0 && length < RP_COMMAND_NAME_MAX && (ptr = rp_commands[length - 1]) != NULL) {
+    if(name->length > 0 && name->length < RP_COMMAND_NAME_MAX &&
+        (ptr = rp_commands[name->length - 1]) != NULL) {
         while(ptr->name != NULL) {
-            if(strncasecmp(name, ptr->name, length) == 0) {
+            if(strncasecmp(name->data, ptr->name, name->length) == 0) {
                 return ptr;
             }
             ptr++;
         }
     }
     return NULL;
+}
+
+void rp_command_auth(void *data)
+{
+    rp_connection_t *c = data;
+    rp_client_t *client = c->data;
+
+    if(!(c->flags & RP_AUTHENTICATED) && (
+        client->cmd.argc != client->cmd.proto->argc ||
+        c->auth.length != client->cmd.argv[1].length ||
+        strncmp(c->auth.data, client->cmd.argv[1].data, c->auth.length))) {
+        client->buffer.used = sprintf(client->buffer.s.data, "-ERR operation not permitted\r\n");
+    } else {
+        client->buffer.used = sprintf(client->buffer.s.data, "+OK\r\n");
+        c->flags |= RP_AUTHENTICATED;
+    }
+    client->buffer.r = client->buffer.w = 0;
+    c->flags |= RP_ALREADY;
 }
 
 void rp_command_ping(void *data)

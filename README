@@ -2,8 +2,8 @@ redis-proxy
 ===========
 
 It's like haproxy except for redis. It receives requests from clients and separates get and set requests between master and several slaves.
-Set commands are always go to master server. Get commands go to master or one of slaves(chosen by roundrobin). PING and TIME commands are processed locally.
-After redis-proxy start the first server to which was able to connect becomes master(often this is the first server from list of program arguments) and all other servers becomes a slaves. If master fails the first available slave becomes the master. After server recovery it becomes the slave.
+Set commands are always go to master server. Get commands go to master or one of slaves(chosen by roundrobin). AUTH, PING and TIME commands are processed locally.
+After redis-proxy start the first server to which was able to connect becomes master(often this is the first server from config) and all other servers becomes a slaves. If master fails the first available slave becomes the master. After server recovery it becomes the slave.
 
 # Build
 
@@ -11,16 +11,17 @@ just run make
 
 # Usage
 
-./redis-proxy -c redis-proxy.conf
+./redis-proxy -[ct] redis-proxy.conf
 
 Options:
     -c : configuration file name
+    -t : test configuration file and exit
 
 
 # Limitations
 
-1. Pipelining is not supported at this time
-2. AUTH, ECHO, EVAL, SYNC, DEBUG, CLIENT, CONFIG, SELECT, MIGRATE, MONITOR, PUBLISH, SLAVEOF, SLOWLOG, SHUTDOWN, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE commands are always fails at this time
+1. Inline commands and pipelining are not supported at this time
+2. ECHO, EVAL, SYNC, DEBUG, CLIENT, CONFIG, SELECT, MIGRATE, MONITOR, PUBLISH, SLAVEOF, SLOWLOG, SHUTDOWN, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE commands are always fails at this time
 3. Low productivity compared to redis server
    redis-benchmark:
        PING_INLINE: 71428.57 requests per second

@@ -3,9 +3,11 @@
 
 #include <stdlib.h>
 
+#define RP_NULL_LEN -1
+
 typedef struct {
+    int length;
     char *data;
-    size_t length;
 } rp_string_t;
 
 char *rp_strstr(rp_string_t *s, const char *needle);

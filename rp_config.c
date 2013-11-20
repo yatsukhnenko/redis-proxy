@@ -1,14 +1,15 @@
 #include "rp_config.h"
 
 static rp_config_command_t main_commands[] = {
-    { "listen", rp_config_setting_listen },
-    { "server", rp_config_setting_server },
+    { "listen", rp_config_main_setting_listen },
+    { "server", rp_config_main_setting_server },
+    { "auth",   rp_config_main_setting_auth   },
     {  NULL,    NULL                     }
 };
 
 static rp_config_command_t server_commands[] = {
-    { "address", rp_config_server_address },
-    { "port",    rp_config_server_port    },
+    { "address", rp_config_server_setting_address },
+    { "port",    rp_config_server_setting_port    },
     {  NULL,     NULL                     }
 };
 
@@ -100,7 +101,7 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
     return cmd->set(cfg, s);
 }
 
-int rp_config_setting_listen(rp_config_t *cfg, rp_settings_t *s)
+int rp_config_main_setting_listen(rp_config_t *cfg, rp_settings_t *s)
 {
     int port;
     char *ptr, *ip = "0.0.0.0";
@@ -131,9 +132,20 @@ int rp_config_setting_listen(rp_config_t *cfg, rp_settings_t *s)
     return RP_SUCCESS;
 }
 
-int rp_config_setting_server(rp_config_t *cfg, rp_settings_t *s)
+int rp_config_main_setting_auth(rp_config_t *cfg, rp_settings_t *s)
+{
+    if(rp_config_read_value(cfg) != RP_SUCCESS) {
+        return RP_FAILURE;
+    }
+    s->listen->auth.length = cfg->buffer.used;
+    s->listen->auth.data = strcpy(malloc(cfg->buffer.used + 1), cfg->buffer.s.data);
+    return RP_SUCCESS;
+}
+
+int rp_config_main_setting_server(rp_config_t *cfg, rp_settings_t *s)
 {
     int chr;
+    rp_connection_t *c;
     do {
         if((chr = fgetc(cfg->f)) == '\n') {
             cfg->line++;
@@ -143,20 +155,27 @@ int rp_config_setting_server(rp_config_t *cfg, rp_settings_t *s)
         fprintf(stderr, "%s:%d syntax error\n", cfg->filename, cfg->line);
         return RP_FAILURE;
     }
-    if((s->servers->c = realloc(s->servers->c, ++s->servers->size * sizeof(rp_connection_t))) == NULL) {
+    if((c = realloc(s->servers->c, (s->servers->size + 1) * sizeof(rp_connection_t))) == NULL) {
         fprintf(stderr, "realloc at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
         return RP_FAILURE;
     }
+    s->servers->c = c;
+    c = &s->servers->c[s->servers->size++];
+    c->sockfd = -1;
+    c->address = INADDR_LOOPBACK;
+    c->hr.address.data = "127.0.0.1";
+    c->hr.address.length = strlen(c->hr.address.data);
+    c->port = htons(RP_DEFAULT_PORT);
+    c->hr.port = RP_DEFAULT_PORT;
+    c->data = NULL;
+    c->flags = 0;
+    c->time = 0;
     cfg->ctx = RP_CFG_SRV_CTX;
-    s->servers->c[s->servers->size - 1].sockfd = -1;
-    s->servers->c[s->servers->size - 1].data = NULL;
-    s->servers->c[s->servers->size - 1].flags = 0;
-    s->servers->c[s->servers->size - 1].time = 0;
     return RP_SUCCESS;
 }
 
 
-int rp_config_server_address(rp_config_t *cfg, rp_settings_t *s)
+int rp_config_server_setting_address(rp_config_t *cfg, rp_settings_t *s)
 {
     struct in_addr *in;
     struct hostent *he;
@@ -177,7 +196,7 @@ int rp_config_server_address(rp_config_t *cfg, rp_settings_t *s)
 }
 
 
-int rp_config_server_port(rp_config_t *cfg, rp_settings_t *s)
+int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s)
 {
     int port;
     if(rp_config_read_value(cfg) != RP_SUCCESS) {

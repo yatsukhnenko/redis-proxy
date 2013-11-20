@@ -77,19 +77,29 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             rp_connection_close(a, eh, s);
                             continue;
                         }
-                        if((j = rp_request_parse(&client->buffer, &client->command)) != RP_UNKNOWN) {
+                        if((j = rp_request_parse(&client->buffer, &client->cmd)) != RP_UNKNOWN) {
                             e.data = a;
                             e.events = RP_EVENT_READ;
                             eh->del(eh, a->sockfd, &e);
                             if(j == RP_SUCCESS) {
-                                if(client->command.proto->flags & RP_LOCAL_COMMAND) {
-                                    client->command.proto->handler(a);
+                                if(!(a->flags & RP_AUTHENTICATED) &&
+                                    !(client->cmd.proto->flags & RP_WITHOUT_AUTH)) {
+                                    client->buffer.r = client->buffer.w = 0;
+                                    client->buffer.used = sprintf(client->buffer.s.data, "-ERR operation not permitted\r\n");
+                                    e.data = a;
+                                    e.events = RP_EVENT_WRITE;
+                                    eh->add(eh, a->sockfd, &e);
+                                    a->flags |= RP_ALREADY;
+                                    continue;
+                                }
+                                if(client->cmd.proto->flags & RP_LOCAL_COMMAND) {
+                                    client->cmd.proto->handler(a);
                                     e.data = a;
                                     e.events = RP_EVENT_WRITE;
                                     eh->add(eh, a->sockfd, &e);
                                     continue;
                                 }
-                                if(client->command.proto->flags & RP_MASTER_COMMAND) {
+                                if(client->cmd.proto->flags & RP_MASTER_COMMAND) {
                                     if((c = master) == NULL) {
                                         for(j = 0; j < s->size; j++) {
                                             s->c[j].time = 0;
@@ -110,7 +120,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                     e.events = RP_EVENT_WRITE;
                                     eh->add(eh, c->sockfd, &e);
                                 } else {
-                                    rp_queue_push(client->command.proto->flags & RP_MASTER_COMMAND ? &qset : &qget, a);
+                                    rp_queue_push(client->cmd.proto->flags & RP_MASTER_COMMAND ? &qset : &qget, a);
                                 }
                             } else {
                                 client->buffer.r = client->buffer.w = 0;
@@ -136,7 +146,9 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             e.events = RP_EVENT_WRITE;
                             eh->del(eh, a->sockfd, &e);
                             client->buffer.r = client->buffer.w = client->buffer.used = 0;
-                            client->command.argc = client->command.argv.length = RP_NULL_LEN - 1;
+                            client->cmd.argc = RP_NULL_LEN - 1;
+                            free(client->cmd.argv);
+                            client->cmd.argv = NULL;
                             e.data = a;
                             e.events = RP_EVENT_READ;
                             eh->add(eh, a->sockfd, &e);
@@ -158,7 +170,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                 e.events = RP_EVENT_WRITE;
                                 eh->add(eh, c->sockfd, &e);
                             }
-                            if((j = rp_reply_parse(&client->buffer, &client->command)) != RP_UNKNOWN) {
+                            if((j = rp_reply_parse(&client->buffer, &client->cmd)) != RP_UNKNOWN) {
                                 if(j == RP_SUCCESS) {
                                     c->flags |= RP_ALREADY;
                                     client->server = NULL;
@@ -237,7 +249,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                 c->flags &= ~RP_ALREADY;
                                 c->flags &= ~RP_INPROGRESS;
                                 client->buffer.r = client->buffer.w = client->buffer.used = 0;
-                                client->command.argc = client->command.argv.length = RP_NULL_LEN - 1;
+                                client->cmd.argc = RP_NULL_LEN - 1;
                                 e.data = a;
                                 e.events = RP_EVENT_READ;
                                 eh->add(eh, a->sockfd, &e);
@@ -277,7 +289,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                     }
                 } else {
                     /* accept connection from client */
-                    if((c = rp_connection_accept(NULL, l->sockfd)) != NULL) {
+                    if((c = rp_connection_accept(NULL, l)) != NULL) {
                         e.data = c;
                         e.events = RP_EVENT_READ;
                         eh->add(eh, c->sockfd, &e);
@@ -307,6 +319,7 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
         close(c->sockfd);
         /* free resources */
         free(client->buffer.s.data);
+        free(client->cmd.argv);
         free(c->data);
         free(c);
     } else {
@@ -412,14 +425,14 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
     return c;
 }
 
-rp_connection_t *rp_connection_accept(rp_connection_t *c, int sockfd)
+rp_connection_t *rp_connection_accept(rp_connection_t *c, rp_connection_t *l)
 {
     int s, alloc = 0;
     rp_client_t *client;
     struct sockaddr_in addr;
-    socklen_t l = sizeof(addr);
+    socklen_t len = sizeof(addr);
 
-    if((s = accept(sockfd, (struct sockaddr *)&addr, &l)) < 0) {
+    if((s = accept(l->sockfd, (struct sockaddr *)&addr, &len)) < 0) {
         syslog(LOG_ERR, "accept at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
     }
@@ -444,11 +457,17 @@ rp_connection_t *rp_connection_accept(rp_connection_t *c, int sockfd)
     if((client->buffer.s.data = malloc(client->buffer.s.length)) == NULL) {
         client->buffer.s.length = 0;
     }
-    client->command.argc = client->command.argv.length = RP_NULL_LEN - 1;
+    client->cmd.argc = RP_NULL_LEN - 1;
+    client->cmd.argv = NULL;
     client->server = NULL;
     c->flags = RP_CLIENT;
     c->data = client;
     c->sockfd = s;
+    c->auth.data = l->auth.data;
+    c->auth.length = l->auth.length;
+    if(l->auth.data == NULL) {
+        c->flags |= RP_AUTHENTICATED;
+    }
     return c;
 }
 
@@ -490,178 +509,182 @@ rp_connection_t *rp_server_lookup(rp_connection_pool_t *s)
     return NULL;
 }
 
-int rp_request_parse(rp_buffer_t *buffer, rp_command_t *command)
+int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd)
 {
     int i;
-    char *b, *ptr;
+    char *ptr;
     rp_string_t s;
 
-    s.data = &buffer->s.data[buffer->r];
-    s.length = buffer->used - buffer->r;
+    s.data = &buf->s.data[buf->r];
+    s.length = buf->used - buf->r;
     while((ptr = rp_strstr(&s, "\r\n")) != NULL) {
-        b = s.data;
-        if(command->argc < RP_NULL_LEN) {
-            command->i = 0;
-            if(*b != RP_MULTI_BULK_PREFIX) {
-                if((command->proto = rp_lookup_command(b, -1)) == NULL) {
-                    return RP_FAILURE;
-                }
-                return RP_SUCCESS;
-            } else {
-                i = 0; b++;
-                while(*b >= '0' && *b <= '9') {
-                    i = i * 10 + *b++ - '0';
-                }
-                if(b != ptr)  {
-                    return RP_FAILURE;
-                }
-                command->argc = i;
-                command->argv.length = RP_NULL_LEN - 1;
-            }
-        } else if(command->argv.length < RP_NULL_LEN) {
-            if(*b++ != RP_BULK_PREFIX) {
+        buf->r = ptr - buf->s.data + 2;
+        if(cmd->argc < RP_NULL_LEN) {
+            cmd->i = 0;
+            if(*s.data != RP_MULTI_BULK_PREFIX) {
                 return RP_FAILURE;
-            }
-            if(*b == '-') {
-                if(*++b != '1' || ++b != ptr) {
-                    return RP_FAILURE;
-                }
-                command->argv.length = RP_NULL_LEN;
             } else {
                 i = 0;
-                while(*b >= '0' && *b <= '9') {
-                    i = i * 10 + *b++ - '0';
+                s.data++;
+                while(*s.data >= '0' && *s.data <= '9') {
+                    i = i * 10 + *s.data++ - '0';
                 }
-                if(b != ptr) {
+                if(!i || s.data != ptr)  {
                     return RP_FAILURE;
                 }
-                command->argv.length = i;
+                cmd->argc = i;
+                if((cmd->argv = calloc(i, sizeof(rp_string_t))) == NULL) {
+                    syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+                    return RP_FAILURE;
+                }
+                for(i = 0; i < cmd->argc; i++) {
+                    cmd->argv[i].data = NULL;
+                    cmd->argv[i].length = RP_NULL_LEN - 1;
+                }
             }
-            command->argv.ptr = NULL;
+        } else if(cmd->argv[cmd->i].length < RP_NULL_LEN) {
+            if(*s.data++ != RP_BULK_PREFIX) {
+                return RP_FAILURE;
+            }
+            if(*s.data == '-') {
+                if(*++s.data != '1' || ++s.data != ptr) {
+                    return RP_FAILURE;
+                }
+                cmd->argv[cmd->i].length = RP_NULL_LEN;
+            } else {
+                i = 0;
+                while(*s.data >= '0' && *s.data <= '9') {
+                    i = i * 10 + *s.data++ - '0';
+                }
+                if(s.data != ptr) {
+                    return RP_FAILURE;
+                }
+                cmd->argv[cmd->i].length = i;
+            }
+            cmd->argv[cmd->i].data = NULL;
         } else {
-            if(command->argv.ptr == NULL) {
-                command->argv.ptr = b;
+            if(cmd->argv[cmd->i].data == NULL) {
+                cmd->argv[cmd->i].data = s.data;
             }
-            if(command->argv.length == RP_NULL_LEN || (i = ptr - command->argv.ptr) == command->argv.length) {
-                if(!command->i++) {
-                    if((command->proto = rp_lookup_command(command->argv.ptr, command->argv.length)) == NULL) {
+            i = ptr - cmd->argv[cmd->i].data;
+            if(cmd->argv[cmd->i].length == RP_NULL_LEN || i == cmd->argv[cmd->i].length) {
+                if(!cmd->i) {
+                    if((cmd->proto = rp_command_lookup(&cmd->argv[cmd->i])) == NULL) {
                         return RP_FAILURE;
                     }
-                }
-                if(command->i >= command->argc) {
                     /* TODO: check argc */
+                }
+                if(++cmd->i == cmd->argc) {
                     return RP_SUCCESS;
                 }
-                command->argv.length = RP_NULL_LEN - 1;
-            } else if(i > command->argv.length) {
+            } else if(i > cmd->argv[cmd->i].length) {
                 return RP_FAILURE;
             }
         }
-        buffer->r = ptr - buffer->s.data + 2;
-        s.data = &buffer->s.data[buffer->r];
-        s.length = buffer->used - buffer->r;
+        s.data = &buf->s.data[buf->r];
+        s.length = buf->used - buf->r;
     }
     return RP_UNKNOWN;
 }
 
-int rp_reply_parse(rp_buffer_t *buffer, rp_command_t *command)
+int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd)
 {
     int i;
-    char *b, *ptr;
+    char *ptr;
     rp_string_t s;
 
-    s.data = &buffer->s.data[buffer->r];
-    s.length = buffer->used - buffer->r;
+    s.data = &buf->s.data[buf->r];
+    s.length = buf->used - buf->r;
     while((ptr = rp_strstr(&s, "\r\n")) != NULL) {
-        b = s.data;
-        if(command->argc < RP_NULL_LEN) {
-            command->i = 0;
-            switch(*b++) {
+        buf->r = ptr - buf->s.data + 2;
+        if(cmd->argc < RP_NULL_LEN) {
+            cmd->i = 0;
+            switch(*s.data++) {
                 case RP_MULTI_BULK_PREFIX:
-                    if(*b == '-') {
-                        if(*++b != '1' || ++b != ptr) {
+                    if(*s.data == '-') {
+                        if(*++s.data != '1' || ++s.data != ptr) {
                             return RP_FAILURE;
                         }
                         i = RP_NULL_LEN;
                     } else {
                         i = 0;
-                        while(*b >= '0' && *b <= '9') {
-                            i = i * 10 + *b++ - '0';
+                        while(*s.data >= '0' && *s.data <= '9') {
+                            i = i * 10 + *s.data++ - '0';
                         }
-                        if(b != ptr) {
+                        if(s.data != ptr) {
                             return RP_FAILURE;
                         }
                     }
                     if(!i || i == RP_NULL_LEN) {
                         return RP_SUCCESS;
                     }
-                    command->argc = i;
-                    command->argv.length = RP_NULL_LEN - 1;
+                    cmd->argc = i;
+                    cmd->argv->length = RP_NULL_LEN - 1;
                     break;
                 case RP_BULK_PREFIX:
-                    if(*b == '-') {
-                        if(*++b != '1' || ++b != ptr) {
+                    if(*s.data == '-') {
+                        if(*++s.data != '1' || ++s.data != ptr) {
                             return RP_FAILURE;
                         }
                         return RP_SUCCESS;
                     }
                     i = 0;
-                    while(*b >= '0' && *b <= '9') {
-                        i = i * 10 + *b++ - '0';
+                    while(*s.data >= '0' && *s.data <= '9') {
+                        i = i * 10 + *s.data++ - '0';
                     }
-                    if(b != ptr) {
+                    if(s.data != ptr) {
                         return RP_FAILURE;
                     }
-                    command->argc = 1;
-                    command->argv.ptr = NULL;
-                    command->argv.length = i;
+                    cmd->argc = 1;
+                    cmd->argv->data = NULL;
+                    cmd->argv->length = i;
                     break;
                 case RP_STATUS_PREFIX:
                 case RP_ERROR_PREFIX:
                 case RP_INTEGER_PREFIX:
-                    if(ptr - b + 2 != buffer->used - 1) {
+                    if(ptr - s.data + 2 != buf->used - 1) {
                         return RP_FAILURE;
                     }
                     return RP_SUCCESS;
                 default:
                     return RP_FAILURE;
             }
-        } else if(command->argv.length < RP_NULL_LEN) {
-            if(*b++ != RP_BULK_PREFIX) {
+        } else if(cmd->argv->length < RP_NULL_LEN) {
+            if(*s.data++ != RP_BULK_PREFIX) {
                 return RP_FAILURE;
             }
-            if(*b == '-') {
-                if(*++b != '1' || ++b != ptr) {
+            if(*s.data == '-') {
+                if(*++s.data != '1' || ++s.data != ptr) {
                     return RP_FAILURE;
                 }
-                command->argv.length = RP_NULL_LEN;
+                cmd->argv->length = RP_NULL_LEN;
             } else {
                 i = 0;
-                while(*b >= '0' && *b <= '9') {
-                    i = i * 10 + *b++ - '0';
+                while(*s.data >= '0' && *s.data <= '9') {
+                    i = i * 10 + *s.data++ - '0';
                 }
-                if(b != ptr) {
+                if(s.data != ptr) {
                     return RP_FAILURE;
                 }
-                command->argv.length = i;
+                cmd->argv->length = i;
             }
-            command->argv.ptr = NULL;
+            cmd->argv->data = NULL;
         } else {
-            if(command->argv.ptr == NULL) {
-                command->argv.ptr = b;
+            if(cmd->argv->data == NULL) {
+                cmd->argv->data = s.data;
             }
-            if(command->argv.length == RP_NULL_LEN || (i = ptr - command->argv.ptr) == command->argv.length) {
-                if(++command->i == command->argc) {
+            i = ptr - cmd->argv->data;
+            if(cmd->argv->length == RP_NULL_LEN || i == cmd->argv->length) {
+                if(++cmd->i == cmd->argc) {
                     return RP_SUCCESS;
                 }
-                command->argv.length = RP_NULL_LEN - 1;
-            } else if(i > command->argv.length) {
+                cmd->argv->length = RP_NULL_LEN - 1;
+            } else if(i > cmd->argv->length) {
                 return RP_FAILURE;
             }
         }
-        buffer->r = ptr - buffer->s.data + 2;
-        s.data = &buffer->s.data[buffer->r];
-        s.length = buffer->used - buffer->r;
+        s.data = &buf->s.data[buf->r];
+        s.length = buf->used - buf->r;
     }
     return RP_UNKNOWN;
 }

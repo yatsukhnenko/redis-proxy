@@ -34,10 +34,11 @@ typedef struct {
 
 int rp_config_file_parse(char *filename, rp_settings_t *s);
 int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s);
-int rp_config_setting_server(rp_config_t *cfg, rp_settings_t *s);
-int rp_config_setting_listen(rp_config_t *cfg, rp_settings_t *s);
-int rp_config_server_address(rp_config_t *cfg, rp_settings_t *s);
-int rp_config_server_port(rp_config_t *cfg, rp_settings_t *s);
+int rp_config_main_setting_server(rp_config_t *cfg, rp_settings_t *s);
+int rp_config_main_setting_listen(rp_config_t *cfg, rp_settings_t *s);
+int rp_config_main_setting_auth(rp_config_t *cfg, rp_settings_t *s);
+int rp_config_server_setting_address(rp_config_t *cfg, rp_settings_t *s);
+int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s);
 int rp_config_read_value(rp_config_t *cfg);
 int rp_config_parse_port(char *ptr);
 

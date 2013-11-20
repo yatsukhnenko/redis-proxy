@@ -4,12 +4,12 @@
 #include <strings.h>
 #include "rp_common.h"
 
-#define RP_NULL_LEN          -1
 #define RP_COMMAND_NAME_MAX   16
 
-#define RP_LOCAL_COMMAND      1
-#define RP_MASTER_COMMAND     2
-#define RP_SLAVE_COMMAND      4
+#define RP_LOCAL_COMMAND      0x01
+#define RP_MASTER_COMMAND     0x02
+#define RP_SLAVE_COMMAND      0x04
+#define RP_WITHOUT_AUTH       0x10
 
 #define RP_MULTI_BULK_PREFIX '*'
 #define RP_BULK_PREFIX       '$'
@@ -26,15 +26,13 @@ typedef struct {
 
 typedef struct {
     int argc;
-    struct {
-        char *ptr;
-        int length;
-    } argv;
     unsigned int i;
+    rp_string_t *argv;
     rp_command_proto_t *proto;
 } rp_command_t;
 
-rp_command_proto_t *rp_lookup_command(char *name, int length);
+rp_command_proto_t *rp_command_lookup(rp_string_t *name);
+void rp_command_auth(void *data);
 void rp_command_ping(void *data);
 void rp_command_quit(void *data);
 void rp_command_time(void *data);
