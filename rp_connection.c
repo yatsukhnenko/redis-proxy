@@ -520,47 +520,34 @@ int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd)
     while((ptr = rp_strstr(&s, "\r\n")) != NULL) {
         buf->r = ptr - buf->s.data + 2;
         if(cmd->argc < RP_NULL_LEN) {
-            cmd->i = 0;
             if(*s.data != RP_MULTI_BULK_PREFIX) {
                 return RP_FAILURE;
-            } else {
-                i = 0;
-                s.data++;
-                while(*s.data >= '0' && *s.data <= '9') {
-                    i = i * 10 + *s.data++ - '0';
-                }
-                if(!i || s.data != ptr)  {
-                    return RP_FAILURE;
-                }
-                cmd->argc = i;
-                if((cmd->argv = calloc(i, sizeof(rp_string_t))) == NULL) {
-                    syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-                    return RP_FAILURE;
-                }
-                for(i = 0; i < cmd->argc; i++) {
-                    cmd->argv[i].data = NULL;
-                    cmd->argv[i].length = RP_NULL_LEN - 1;
-                }
             }
-        } else if(cmd->argv[cmd->i].length < RP_NULL_LEN) {
-            if(*s.data++ != RP_BULK_PREFIX) {
+            s.data++;
+            s.length--;
+            if((i = rp_strtol(&s)) <= 0 || s.data != ptr) {
                 return RP_FAILURE;
             }
-            if(*s.data == '-') {
-                if(*++s.data != '1' || ++s.data != ptr) {
-                    return RP_FAILURE;
-                }
-                cmd->argv[cmd->i].length = RP_NULL_LEN;
-            } else {
-                i = 0;
-                while(*s.data >= '0' && *s.data <= '9') {
-                    i = i * 10 + *s.data++ - '0';
-                }
-                if(s.data != ptr) {
-                    return RP_FAILURE;
-                }
-                cmd->argv[cmd->i].length = i;
+            cmd->i = 0;
+            cmd->argc = i;
+            if((cmd->argv = calloc(i, sizeof(rp_string_t))) == NULL) {
+                syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+                return RP_FAILURE;
             }
+            for(i = 0; i < cmd->argc; i++) {
+                cmd->argv[i].data = NULL;
+                cmd->argv[i].length = RP_NULL_LEN - 1;
+            }
+        } else if(cmd->argv[cmd->i].length < RP_NULL_LEN) {
+            if(*s.data != RP_BULK_PREFIX) {
+                return RP_FAILURE;
+            }
+            s.data++;
+            s.length--;
+            if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+                return RP_FAILURE;
+            }
+            cmd->argv[cmd->i].length = i;
             cmd->argv[cmd->i].data = NULL;
         } else {
             if(cmd->argv[cmd->i].data == NULL) {
@@ -599,75 +586,53 @@ int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd)
         buf->r = ptr - buf->s.data + 2;
         if(cmd->argc < RP_NULL_LEN) {
             cmd->i = 0;
-            switch(*s.data++) {
+            switch(*s.data) {
                 case RP_MULTI_BULK_PREFIX:
-                    if(*s.data == '-') {
-                        if(*++s.data != '1' || ++s.data != ptr) {
-                            return RP_FAILURE;
-                        }
-                        i = RP_NULL_LEN;
-                    } else {
-                        i = 0;
-                        while(*s.data >= '0' && *s.data <= '9') {
-                            i = i * 10 + *s.data++ - '0';
-                        }
-                        if(s.data != ptr) {
-                            return RP_FAILURE;
-                        }
-                    }
-                    if(!i || i == RP_NULL_LEN) {
+                    s.data++;
+                    s.length--;
+                    if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+                        return RP_FAILURE;
+                    } else if(i <= 0) {
                         return RP_SUCCESS;
                     }
                     cmd->argc = i;
                     cmd->argv->length = RP_NULL_LEN - 1;
                     break;
                 case RP_BULK_PREFIX:
-                    if(*s.data == '-') {
-                        if(*++s.data != '1' || ++s.data != ptr) {
-                            return RP_FAILURE;
-                        }
-                        return RP_SUCCESS;
-                    }
-                    i = 0;
-                    while(*s.data >= '0' && *s.data <= '9') {
-                        i = i * 10 + *s.data++ - '0';
-                    }
-                    if(s.data != ptr) {
+                    s.data++;
+                    s.length--;
+                    if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
                         return RP_FAILURE;
+                    } else if(i <= 0) {
+                        return RP_SUCCESS;
                     }
                     cmd->argc = 1;
                     cmd->argv->data = NULL;
                     cmd->argv->length = i;
                     break;
-                case RP_STATUS_PREFIX:
-                case RP_ERROR_PREFIX:
                 case RP_INTEGER_PREFIX:
-                    if(ptr - s.data + 2 != buf->used - 1) {
+                    s.data++;
+                    s.length--;
+                    i = rp_strtol(&s);
+                    if(s.data != ptr) {
                         return RP_FAILURE;
                     }
+                case RP_STATUS_PREFIX:
+                case RP_ERROR_PREFIX:
                     return RP_SUCCESS;
                 default:
                     return RP_FAILURE;
             }
         } else if(cmd->argv->length < RP_NULL_LEN) {
-            if(*s.data++ != RP_BULK_PREFIX) {
+            if(*s.data != RP_BULK_PREFIX) {
                 return RP_FAILURE;
             }
-            if(*s.data == '-') {
-                if(*++s.data != '1' || ++s.data != ptr) {
-                    return RP_FAILURE;
-                }
-                cmd->argv->length = RP_NULL_LEN;
-            } else {
-                i = 0;
-                while(*s.data >= '0' && *s.data <= '9') {
-                    i = i * 10 + *s.data++ - '0';
-                }
-                if(s.data != ptr) {
-                    return RP_FAILURE;
-                }
-                cmd->argv->length = i;
+            s.data++;
+            s.length--;
+            if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+                return RP_FAILURE;
             }
+            cmd->argv->length = i;
             cmd->argv->data = NULL;
         } else {
             if(cmd->argv->data == NULL) {
