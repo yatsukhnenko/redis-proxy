@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 
     l.sockfd = -1;
     l.auth.data = NULL;
-    l.auth.length = RP_NULL_LEN;
+    l.auth.length = RP_NULL_STRLEN;
     l.address = addr.s_addr;
     l.hr.address.data = "0.0.0.0";
     l.hr.address.length = strlen(l.hr.address.data);

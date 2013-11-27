@@ -12,7 +12,7 @@ rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh, size_t maxeven
 {
     int alloc = 0;
 
-    if(eh == 0) {
+    if(eh == NULL) {
         if((eh = malloc(sizeof(rp_event_handler_t))) == NULL) {
             syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
             return NULL;

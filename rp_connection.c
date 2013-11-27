@@ -23,7 +23,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
     }
 
     /* initialize event handler object */
-    if((eh = rp_event_handler_init(NULL, RP_CONCURRENT_CONNECTIONS + s->size + 1)) == NULL) {
+    if((eh = rp_event_handler_init(NULL, RP_CONCURRENT_CONNECTIONS)) == NULL) {
         return EXIT_FAILURE;
     }
 
@@ -81,17 +81,17 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             e.data = a;
                             e.events = RP_EVENT_READ;
                             eh->del(eh, a->sockfd, &e);
-                            if(j == RP_SUCCESS) {
-                                if(!(a->flags & RP_AUTHENTICATED) &&
-                                    !(client->cmd.proto->flags & RP_WITHOUT_AUTH)) {
-                                    client->buffer.r = client->buffer.w = 0;
-                                    client->buffer.used = sprintf(client->buffer.s.data, "-ERR operation not permitted\r\n");
-                                    e.data = a;
-                                    e.events = RP_EVENT_WRITE;
-                                    eh->add(eh, a->sockfd, &e);
-                                    a->flags |= RP_ALREADY;
-                                    continue;
-                                }
+                            if(j != RP_SUCCESS || (!(a->flags & RP_AUTHENTICATED)
+                                && !(client->cmd.proto->flags & RP_WITHOUT_AUTH))) {
+                                client->buffer.r = client->buffer.w = 0;
+                                client->buffer.used = sprintf(client->buffer.s.data,
+                                    j == RP_SUCCESS ? "-ERR operation not permitted\r\n" : "-ERR syntax error\r\n");
+                                e.data = a;
+                                e.events = RP_EVENT_WRITE;
+                                eh->add(eh, a->sockfd, &e);
+                                a->flags |= RP_ALREADY;
+                                continue;
+                            } else {
                                 if(client->cmd.proto->flags & RP_LOCAL_COMMAND) {
                                     client->cmd.proto->handler(a);
                                     e.data = a;
@@ -122,13 +122,6 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                 } else {
                                     rp_queue_push(client->cmd.proto->flags & RP_MASTER_COMMAND ? &qset : &qget, a);
                                 }
-                            } else {
-                                client->buffer.r = client->buffer.w = 0;
-                                client->buffer.used = sprintf(client->buffer.s.data, "-Protocol error\r\n");
-                                e.data = a;
-                                e.events = RP_EVENT_WRITE;
-                                eh->add(eh, a->sockfd, &e);
-                                a->flags |= RP_ALREADY;
                             }
                         }
                     }
@@ -146,7 +139,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                             e.events = RP_EVENT_WRITE;
                             eh->del(eh, a->sockfd, &e);
                             client->buffer.r = client->buffer.w = client->buffer.used = 0;
-                            client->cmd.argc = RP_NULL_LEN - 1;
+                            client->cmd.argc = RP_NULL_STRLEN - 1;
                             free(client->cmd.argv);
                             client->cmd.argv = NULL;
                             e.data = a;
@@ -249,7 +242,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                                 c->flags &= ~RP_ALREADY;
                                 c->flags &= ~RP_INPROGRESS;
                                 client->buffer.r = client->buffer.w = client->buffer.used = 0;
-                                client->cmd.argc = RP_NULL_LEN - 1;
+                                client->cmd.argc = RP_NULL_STRLEN - 1;
                                 e.data = a;
                                 e.events = RP_EVENT_READ;
                                 eh->add(eh, a->sockfd, &e);
@@ -289,7 +282,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
                     }
                 } else {
                     /* accept connection from client */
-                    if((c = rp_connection_accept(NULL, l)) != NULL) {
+                    if((c = rp_connection_accept(l)) != NULL) {
                         e.data = c;
                         e.events = RP_EVENT_READ;
                         eh->add(eh, c->sockfd, &e);
@@ -375,7 +368,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         server->master = NULL;
         if(server->buffer.s.data == NULL) {
             /* initialize buffer */
-            server->buffer.s.length = RP_DOUBLE_BUFFER_SIZE;
+            server->buffer.s.length = RP_BUFFER_SIZE;
             if((server->buffer.s.data = malloc(server->buffer.s.length)) == NULL) {
                 server->buffer.s.length = 0;
                 return NULL;
@@ -425,44 +418,40 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
     return c;
 }
 
-rp_connection_t *rp_connection_accept(rp_connection_t *c, rp_connection_t *l)
+rp_connection_t *rp_connection_accept(rp_connection_t *l)
 {
-    int s, alloc = 0;
+    int sockfd;
+    rp_connection_t *c;
     rp_client_t *client;
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
 
-    if((s = accept(l->sockfd, (struct sockaddr *)&addr, &len)) < 0) {
+    if((sockfd = accept(l->sockfd, (struct sockaddr *)&addr, &len)) < 0) {
         syslog(LOG_ERR, "accept at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
     }
-    if(c == NULL) {
-        if((c = malloc(sizeof(rp_connection_t))) == NULL) {
-            syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-            close(s);
-            return NULL;
-        }
-        alloc = 1;
+    if((c = malloc(sizeof(rp_connection_t))) == NULL) {
+        syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+        close(sockfd);
+        return NULL;
     }
     if((client = malloc(sizeof(rp_client_t))) == NULL) {
         syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-        close(s);
-        if(alloc) {
-            free(c);
-        }
+        close(sockfd);
+        free(c);
         return NULL;
     }
     memset(client, 0, sizeof(rp_client_t));
-    client->buffer.s.length = RP_DOUBLE_BUFFER_SIZE;
+    client->buffer.s.length = RP_BUFFER_SIZE;
     if((client->buffer.s.data = malloc(client->buffer.s.length)) == NULL) {
         client->buffer.s.length = 0;
     }
-    client->cmd.argc = RP_NULL_LEN - 1;
+    client->cmd.argc = RP_NULL_STRLEN - 1;
     client->cmd.argv = NULL;
     client->server = NULL;
-    c->flags = RP_CLIENT;
     c->data = client;
-    c->sockfd = s;
+    c->sockfd = sockfd;
+    c->flags = RP_CLIENT;
     c->auth.data = l->auth.data;
     c->auth.length = l->auth.length;
     if(l->auth.data == NULL) {
@@ -519,7 +508,7 @@ int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd)
     s.length = buf->used - buf->r;
     while((ptr = rp_strstr(&s, "\r\n")) != NULL) {
         buf->r = ptr - buf->s.data + 2;
-        if(cmd->argc < RP_NULL_LEN) {
+        if(cmd->argc < RP_NULL_STRLEN) {
             if(*s.data != RP_MULTI_BULK_PREFIX) {
                 return RP_FAILURE;
             }
@@ -536,15 +525,15 @@ int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd)
             }
             for(i = 0; i < cmd->argc; i++) {
                 cmd->argv[i].data = NULL;
-                cmd->argv[i].length = RP_NULL_LEN - 1;
+                cmd->argv[i].length = RP_NULL_STRLEN - 1;
             }
-        } else if(cmd->argv[cmd->i].length < RP_NULL_LEN) {
+        } else if(cmd->argv[cmd->i].length < RP_NULL_STRLEN) {
             if(*s.data != RP_BULK_PREFIX) {
                 return RP_FAILURE;
             }
             s.data++;
             s.length--;
-            if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+            if((i = rp_strtol(&s)) < RP_NULL_STRLEN || s.data != ptr) {
                 return RP_FAILURE;
             }
             cmd->argv[cmd->i].length = i;
@@ -554,7 +543,7 @@ int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd)
                 cmd->argv[cmd->i].data = s.data;
             }
             i = ptr - cmd->argv[cmd->i].data;
-            if(cmd->argv[cmd->i].length == RP_NULL_LEN || i == cmd->argv[cmd->i].length) {
+            if(cmd->argv[cmd->i].length == RP_NULL_STRLEN || i == cmd->argv[cmd->i].length) {
                 if(!cmd->i) {
                     if((cmd->proto = rp_command_lookup(&cmd->argv[cmd->i])) == NULL) {
                         return RP_FAILURE;
@@ -584,24 +573,24 @@ int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd)
     s.length = buf->used - buf->r;
     while((ptr = rp_strstr(&s, "\r\n")) != NULL) {
         buf->r = ptr - buf->s.data + 2;
-        if(cmd->argc < RP_NULL_LEN) {
+        if(cmd->argc < RP_NULL_STRLEN) {
             cmd->i = 0;
             switch(*s.data) {
                 case RP_MULTI_BULK_PREFIX:
                     s.data++;
                     s.length--;
-                    if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+                    if((i = rp_strtol(&s)) < RP_NULL_STRLEN || s.data != ptr) {
                         return RP_FAILURE;
                     } else if(i <= 0) {
                         return RP_SUCCESS;
                     }
                     cmd->argc = i;
-                    cmd->argv->length = RP_NULL_LEN - 1;
+                    cmd->argv->length = RP_NULL_STRLEN - 1;
                     break;
                 case RP_BULK_PREFIX:
                     s.data++;
                     s.length--;
-                    if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+                    if((i = rp_strtol(&s)) < RP_NULL_STRLEN || s.data != ptr) {
                         return RP_FAILURE;
                     } else if(i <= 0) {
                         return RP_SUCCESS;
@@ -623,13 +612,13 @@ int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd)
                 default:
                     return RP_FAILURE;
             }
-        } else if(cmd->argv->length < RP_NULL_LEN) {
+        } else if(cmd->argv->length < RP_NULL_STRLEN) {
             if(*s.data != RP_BULK_PREFIX) {
                 return RP_FAILURE;
             }
             s.data++;
             s.length--;
-            if((i = rp_strtol(&s)) < RP_NULL_LEN || s.data != ptr) {
+            if((i = rp_strtol(&s)) < RP_NULL_STRLEN || s.data != ptr) {
                 return RP_FAILURE;
             }
             cmd->argv->length = i;
@@ -639,11 +628,11 @@ int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd)
                 cmd->argv->data = s.data;
             }
             i = ptr - cmd->argv->data;
-            if(cmd->argv->length == RP_NULL_LEN || i == cmd->argv->length) {
+            if(cmd->argv->length == RP_NULL_STRLEN || i == cmd->argv->length) {
                 if(++cmd->i == cmd->argc) {
                     return RP_SUCCESS;
                 }
-                cmd->argv->length = RP_NULL_LEN - 1;
+                cmd->argv->length = RP_NULL_STRLEN - 1;
             } else if(i > cmd->argv->length) {
                 return RP_FAILURE;
             }

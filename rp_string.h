@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#define RP_NULL_LEN -1
+#define RP_NULL_STRLEN -1
 
 typedef struct {
     int length;

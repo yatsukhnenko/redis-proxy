@@ -19,7 +19,6 @@
 #define RP_TIMEOUT                1
 
 #define RP_BUFFER_SIZE            4096
-#define RP_DOUBLE_BUFFER_SIZE     8192
 #define RP_CONCURRENT_CONNECTIONS 1024
 
 #define RP_DEFAULT_PORT           6379
