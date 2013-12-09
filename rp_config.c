@@ -234,7 +234,7 @@ int rp_config_read_value(rp_config_t *cfg)
             break;
         }
         if(cfg->buffer.used + 1 > cfg->buffer.s.length) {
-            if(rp_resize_buffer(&cfg->buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
+            if(rp_buffer_resize(&cfg->buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
                 return RP_FAILURE;
             }
         }

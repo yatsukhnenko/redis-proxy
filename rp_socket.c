@@ -64,7 +64,7 @@ int rp_recv(int sockfd, rp_buffer_t *buffer)
 
     for(;;) {
         if(buffer->used + RP_BUFFER_SIZE > buffer->s.length) {
-            if(rp_resize_buffer(buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
+            if(rp_buffer_resize(buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
                 break;
             }
         }
