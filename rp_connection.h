@@ -58,7 +58,7 @@ typedef struct {
 } rp_server_t;
 
 
-int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s);
+int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_connection_pool_t *s);
 rp_connection_t *rp_connection_accept(rp_connection_t *l);
 rp_connection_t *rp_server_connect(rp_connection_t *c);
 void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connection_pool_t *s);

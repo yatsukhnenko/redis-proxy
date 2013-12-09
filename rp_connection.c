@@ -3,7 +3,7 @@
 
 static rp_connection_t *master = NULL;
 
-int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
+int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_connection_pool_t *s)
 {
     time_t t;
     rp_event_t e;
@@ -13,17 +13,11 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *s)
     rp_queue_t qget, qset;
     struct timeval timeout;
     rp_connection_t *c, *a;
-    rp_event_handler_t *eh = NULL;
 
     /* initialize queue */
     if(rp_queue_init(&qget, RP_CONCURRENT_CONNECTIONS) == NULL ||
         rp_queue_init(&qset, RP_CONCURRENT_CONNECTIONS) == NULL
     ) {
-        return EXIT_FAILURE;
-    }
-
-    /* initialize event handler object */
-    if((eh = rp_event_handler_init(NULL, RP_CONCURRENT_CONNECTIONS)) == NULL) {
         return EXIT_FAILURE;
     }
 

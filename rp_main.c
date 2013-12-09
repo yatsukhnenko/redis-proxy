@@ -13,6 +13,7 @@ int main(int argc, char **argv)
     rp_settings_t s;
     rp_connection_t l = { 0 };
     struct passwd *pw = NULL;
+    rp_event_handler_t eh = { 0 };
     char c, *ptr, *filename = NULL;
     rp_connection_pool_t pool = { 0 };
     struct in_addr addr = { INADDR_ANY };
@@ -67,13 +68,15 @@ int main(int argc, char **argv)
         fprintf(stderr, "fork at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
         return EXIT_FAILURE;
     }
-
     if(!getuid()) {
         pw = getpwnam("nobody");
     }
     setsid();
     openlog(NULL, LOG_PID, LOG_USER);
     if(rp_listen(&l.sockfd, l.address, l.port) == NULL) {
+        return EXIT_FAILURE;
+    }
+    if(rp_event_handler_init(&eh, RP_CONCURRENT_CONNECTIONS) == NULL) {
         return EXIT_FAILURE;
     }
     syslog(LOG_INFO, "The proxy is now ready to accept connections on %s:%d", l.hr.address.data, l.hr.port);
@@ -88,7 +91,7 @@ int main(int argc, char **argv)
             if(pw != NULL) {
                 setuid(pw->pw_uid);
             }
-            return rp_connection_handler_loop(&l, &pool);
+            return rp_connection_handler_loop(&l, &eh, &pool);
         }
     }
     return EXIT_SUCCESS;
