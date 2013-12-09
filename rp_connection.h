@@ -30,6 +30,7 @@ typedef struct {
     time_t time;
     unsigned int flags;
     rp_string_t auth;
+    time_t ping;
     struct {
         rp_string_t address;
         unsigned short port;

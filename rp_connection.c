@@ -31,31 +31,6 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
     /* main loop */
     for(;;) {
         time(&t);
-        for(i = 0; i < s->size; i++) {
-            c = &s->c[i];
-            server = c->data;
-            if(c->sockfd < 0) {
-                if(c->time + RP_TIMEOUT < t) {
-                    c->time = t;
-                    /* try connect to server */
-                    if(rp_server_connect(c) != NULL) {
-                        e.data = c;
-                        e.events = RP_EVENT_WRITE;
-                        eh->add(eh, c->sockfd, &e);
-                    }
-                }
-            } else {
-                if(c->time + RP_TIMEOUT < t && server->client == NULL) {
-                    c->time = t;
-                    c->flags |= RP_MAINTENANCE;
-                    server->buffer.r = server->buffer.w = 0;
-                    server->buffer.used = sprintf(server->buffer.s.data, "PING\r\n");
-                    e.data = c;
-                    e.events = RP_EVENT_WRITE;
-                    eh->add(eh, c->sockfd, &e);
-                }
-            }
-        }
         timeout.tv_sec = 0;
         timeout.tv_usec = 100000;
         for(i = 0; i < eh->wait(eh, &timeout); i++) {
@@ -276,6 +251,31 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                 if((c = rp_connection_accept(l)) != NULL) {
                     e.data = c;
                     e.events = RP_EVENT_READ;
+                    eh->add(eh, c->sockfd, &e);
+                }
+            }
+        }
+        for(i = 0; i < s->size; i++) {
+            c = &s->c[i];
+            if(c->sockfd < 0) {
+                if(c->time + RP_TIMEOUT < t) {
+                    c->time = t;
+                    /* try connect to server */
+                    if(rp_server_connect(c) != NULL) {
+                        e.data = c;
+                        e.events = RP_EVENT_WRITE;
+                        eh->add(eh, c->sockfd, &e);
+                    }
+                }
+            } else {
+                server = c->data;
+                if(c->ping > 0 && c->time + c->ping < t && server->client == NULL) {
+                    c->time = t;
+                    c->flags |= RP_MAINTENANCE;
+                    server->buffer.r = server->buffer.w = 0;
+                    server->buffer.used = sprintf(server->buffer.s.data, "*1\r\n$4\r\nPING\r\n");
+                    e.data = c;
+                    e.events = RP_EVENT_WRITE;
                     eh->add(eh, c->sockfd, &e);
                 }
             }

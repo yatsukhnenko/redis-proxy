@@ -4,13 +4,14 @@ static rp_config_command_t main_commands[] = {
     { "listen", rp_config_main_setting_listen },
     { "server", rp_config_main_setting_server },
     { "auth",   rp_config_main_setting_auth   },
-    {  NULL,    NULL                     }
+    {  NULL,    NULL                          }
 };
 
 static rp_config_command_t server_commands[] = {
     { "address", rp_config_server_setting_address },
     { "port",    rp_config_server_setting_port    },
-    {  NULL,     NULL                     }
+    { "ping",    rp_config_server_setting_ping    },
+    {  NULL,     NULL                             }
 };
 
 static rp_config_command_t *commands[] = {
@@ -170,6 +171,7 @@ int rp_config_main_setting_server(rp_config_t *cfg, rp_settings_t *s)
     c->data = NULL;
     c->flags = 0;
     c->time = 0;
+    c->ping = 0;
     cfg->ctx = RP_CFG_SRV_CTX;
     return RP_SUCCESS;
 }
@@ -209,6 +211,30 @@ int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s)
     s->servers->c[s->servers->size - 1].port = htons(port);
     s->servers->c[s->servers->size - 1].hr.port = port;
     return RP_SUCCESS;
+}
+
+
+int rp_config_server_setting_ping(rp_config_t *cfg, rp_settings_t *s)
+{
+    int ping;
+    char *ptr;
+    if(rp_config_read_value(cfg) != RP_SUCCESS) {
+        return RP_FAILURE;
+    }
+    ptr = cfg->buffer.s.data;
+    if(*ptr >= '0' && *ptr <= '9') {
+        if((ping = *ptr++ - '0') > 0) {
+            while(*ptr >= '0' && *ptr <= '9') {
+                ping = ping * 10 + *ptr++ - '0';
+            }
+        }
+        if(*ptr == '\0') {
+            s->servers->c[s->servers->size - 1].ping = ping;
+            return RP_SUCCESS;
+        }
+    }
+    fprintf(stderr, "%s:%d invalid ping interval %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
+    return RP_FAILURE;
 }
 
 

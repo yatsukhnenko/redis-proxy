@@ -44,6 +44,7 @@ int main(int argc, char **argv)
     l.hr.address.length = strlen(l.hr.address.data);
     l.port = htons(RP_DEFAULT_PORT);
     l.hr.port = RP_DEFAULT_PORT;
+    l.ping = 0;
 
     s.listen = &l;
     s.servers = &pool;
