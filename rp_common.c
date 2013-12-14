@@ -1,15 +1,16 @@
 #include "rp_common.h"
 
-int rp_buffer_resize(rp_buffer_t *buffer, int delta)
+int rp_buffer_resize(rp_buffer_t *buf, int delta)
 {
     char *ptr;
+    size_t size;
 
-    if((ptr = realloc(buffer->s.data, buffer->s.length + delta)) == NULL) {
+    size = buf->s.length < 0 ? delta : buf->s.length + delta;
+    if((ptr = realloc(buf->s.data, size)) == NULL) {
         syslog(LOG_ERR, "realloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return RP_FAILURE;
     }
-    buffer->s.length += delta;
-    buffer->s.data = ptr;
-
+    buf->s.length = size;
+    buf->s.data = ptr;
     return RP_SUCCESS;
 }
