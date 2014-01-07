@@ -36,6 +36,5 @@ void rp_command_auth(void *data);
 void rp_command_ping(void *data);
 void rp_command_quit(void *data);
 void rp_command_time(void *data);
-void rp_command_error(void *data);
 
 #endif /* _RP_REDIS_H_ */

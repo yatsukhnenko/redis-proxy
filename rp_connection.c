@@ -8,6 +8,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
     int i, j;
     time_t t;
     rp_event_t e;
+    rp_string_t *err;
     rp_client_t *client;
     rp_server_t *server;
     rp_queue_t qget, qset;
@@ -47,47 +48,66 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         e.data = a;
                         e.events = RP_EVENT_READ;
                         eh->del(eh, a->sockfd, &e);
-                        if(j != RP_SUCCESS || (!(a->flags & RP_AUTHENTICATED)
-                            && !(client->cmd.proto->flags & RP_WITHOUT_AUTH))) {
-                            client->buffer.r = client->buffer.w = 0;
-                            client->buffer.used = sprintf(client->buffer.s.data,
-                                j == RP_SUCCESS ? "-ERR operation not permitted\r\n" : "-ERR syntax error\r\n");
-                            e.data = a;
-                            e.events = RP_EVENT_WRITE;
-                            eh->add(eh, a->sockfd, &e);
-                            a->flags |= RP_ALREADY;
-                            continue;
-                        } else {
-                            if(client->cmd.proto->flags & RP_LOCAL_COMMAND) {
-                                client->cmd.proto->handler(a);
-                                e.data = a;
-                                e.events = RP_EVENT_WRITE;
-                                eh->add(eh, a->sockfd, &e);
-                                continue;
-                            }
-                            if(client->cmd.proto->flags & RP_MASTER_COMMAND) {
-                                if((c = master) == NULL) {
-                                    for(j = 0; j < s->size; j++) {
-                                        s->c[j].time = 0;
-                                    }
-                                }
-                            } else {
-                                c = rp_server_lookup(s);
-                            }
-                            if(c == NULL) {
+                        err = NULL;
+                        if(j != RP_SUCCESS) {
+                            if((err = rp_string("-ERR syntax error")) == NULL) {
                                 rp_connection_close(a, eh, s);
                                 continue;
                             }
-                            client->server = c;
-                            server = c->data;
-                            if(!(c->flags & RP_MAINTENANCE) && server->client == NULL) {
-                                server->client = a;
-                                e.data = c;
-                                e.events = RP_EVENT_WRITE;
-                                eh->add(eh, c->sockfd, &e);
-                            } else {
-                                rp_queue_push(client->cmd.proto->flags & RP_MASTER_COMMAND ? &qset : &qget, a);
+                        } else if((client->cmd.proto = rp_command_lookup(client->cmd.argv)) == NULL) {
+                            if((err = rp_string("-ERR unknown command '%s'", client->cmd.argv)) == NULL) {
+                                rp_connection_close(a, eh, s);
+                                continue;
                             }
+                        } else if(!(a->flags & RP_AUTHENTICATED) && !(client->cmd.proto->flags & RP_WITHOUT_AUTH)) {
+                            if((err = rp_string("-ERR operation not permitted")) == NULL) {
+                                rp_connection_close(a, eh, s);
+                                continue;
+                            }
+                        } else if((client->cmd.proto->argc < 0 && client->cmd.argc < abs(client->cmd.proto->argc))
+                            || (client->cmd.proto->argc > 0 && client->cmd.argc != client->cmd.proto->argc)) {
+                            if((err = rp_string("-ERR wrong number of arguments for '%s' command", client->cmd.argv)) == NULL) {
+                                rp_connection_close(a, eh, s);
+                                continue;
+                            }
+                        }
+                        if(err != NULL) {
+                            client->buffer.r = client->buffer.w = 0;
+                            client->buffer.used = sprintf(client->buffer.s.data, "%.*s\r\n", err->length, err->data);
+                            e.events = RP_EVENT_WRITE;
+                            eh->add(eh, a->sockfd, &e);
+                            a->flags |= RP_ALREADY;
+                            free(err->data);
+                            free(err);
+                            continue;
+                        }
+                        if(client->cmd.proto->flags & RP_LOCAL_COMMAND) {
+                            client->cmd.proto->handler(a);
+                            e.events = RP_EVENT_WRITE;
+                            eh->add(eh, a->sockfd, &e);
+                            continue;
+                        } else if(client->cmd.proto->flags & RP_MASTER_COMMAND) {
+                            if((c = master) == NULL) {
+                                for(j = 0; j < s->size; j++) {
+                                    s->c[j].time = 0;
+                                }
+                            }
+                        } else {
+                            c = rp_server_lookup(s);
+                        }
+                        if(c == NULL) {
+                            rp_connection_close(a, eh, s);
+                            continue;
+                        }
+                        client->server = c;
+                        server = c->data;
+                        if(!(c->flags & RP_MAINTENANCE) && server->client == NULL) {
+                            server->client = a;
+                            e.data = c;
+                            e.events = RP_EVENT_WRITE;
+                            eh->add(eh, c->sockfd, &e);
+                        } else {
+                            rp_queue_push(client->cmd.proto->flags & RP_MASTER_COMMAND ? &qset : &qget, a);
                         }
                     }
                 }
@@ -533,13 +553,7 @@ int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd)
                 cmd->argv[cmd->i].data = s.data;
             }
             i = ptr - cmd->argv[cmd->i].data;
-            if(cmd->argv[cmd->i].length == RP_NULL_STRLEN || i == cmd->argv[cmd->i].length) {
-                if(!cmd->i) {
-                    if((cmd->proto = rp_command_lookup(&cmd->argv[cmd->i])) == NULL) {
-                        return RP_FAILURE;
-                    }
-                    /* TODO: check argc */
-                }
+            if(cmd->argv[cmd->i].length == RP_NULL_STRLEN || cmd->argv[cmd->i].length == i) {
                 if(++cmd->i == cmd->argc) {
                     return RP_SUCCESS;
                 }
