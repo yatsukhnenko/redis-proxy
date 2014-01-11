@@ -237,7 +237,8 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         if(master == NULL) {
                             master = a;
                             rp_set_slaveof(a, NULL);
-                            syslog(LOG_INFO, "Set %s:%d slave of no one", a->hr.address.data, a->hr.port);
+                            syslog(LOG_INFO, "Set %s:%d slave of no one",
+                                a->settings.address.data, a->settings.port);
                         } else if(!(a->flags & RP_MASTER)) {
                             if(master->flags & RP_MAINTENANCE) {
                                 /* master is not ready */
@@ -245,8 +246,8 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                             } else if(server->master != master) {
                                 rp_set_slaveof(a, master);
                                 syslog(LOG_INFO, "Set %s:%d slave of %s:%d",
-                                    a->hr.address.data, a->hr.port,
-                                    master->hr.address.data, master->hr.port);
+                                    a->settings.address.data, a->settings.port,
+                                    master->settings.address.data, master->settings.port);
                             }
                         }
                         /* send request to server */
@@ -289,7 +290,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                 }
             } else {
                 server = c->data;
-                if(c->ping > 0 && c->time + c->ping < t && server->client == NULL) {
+                if(c->settings.ping > 0 && c->time + c->settings.ping < t && server->client == NULL) {
                     c->time = t;
                     c->flags |= RP_MAINTENANCE;
                     server->buffer.r = server->buffer.w = 0;
@@ -344,7 +345,8 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
             rp_connection_close(server->client, eh, s);
         }
         server->client = NULL;
-        syslog(LOG_ERR, "Close connection to %s:%d", c->hr.address.data, c->hr.port);
+        syslog(LOG_ERR, "Close connection to %s:%d",
+            c->settings.address.data, c->settings.port);
         e.data = c;
         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
         eh->del(eh, c->sockfd, &e);
@@ -401,7 +403,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         if(connect(c->sockfd, (const struct sockaddr *)&addr, sizeof(addr))) {
             if(errno != EINPROGRESS) {
                 syslog(LOG_NOTICE, "Could not connect to Redis at %s:%d: %s",
-                    c->hr.address.data, c->hr.port, strerror(errno));
+                    c->settings.address.data, c->settings.port, strerror(errno));
                 close(c->sockfd);
                 c->sockfd = -1;
                 return NULL;
@@ -414,7 +416,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         } else if(optval) {
             if(optval != EALREADY) {
                 syslog(LOG_NOTICE, "Could not connect to Redis at %s:%d: %s",
-                    c->hr.address.data, c->hr.port, strerror(optval));
+                    c->settings.address.data, c->settings.port, strerror(optval));
                 close(c->sockfd);
                 c->sockfd = -1;
                 return NULL;
@@ -422,7 +424,8 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
         } else {
             /* connection has been established successfully */
             c->flags |= RP_ESTABLISHED;
-            syslog(LOG_NOTICE, "Successfully connected to %s:%d", c->hr.address.data, c->hr.port);
+            syslog(LOG_NOTICE, "Successfully connected to %s:%d",
+                c->settings.address.data, c->settings.port);
         }
     }
     return c;
@@ -462,9 +465,9 @@ rp_connection_t *rp_connection_accept(rp_connection_t *l)
     c->data = client;
     c->sockfd = sockfd;
     c->flags = RP_CLIENT;
-    c->auth.data = l->auth.data;
-    c->auth.length = l->auth.length;
-    if(l->auth.data == NULL) {
+    c->settings.auth.data = l->settings.auth.data;
+    c->settings.auth.length = l->settings.auth.length;
+    if(l->settings.auth.data == NULL) {
         c->flags |= RP_AUTHENTICATED;
     }
     return c;
@@ -483,8 +486,8 @@ void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m)
     } else {
         server->buffer.used = sprintf(server->buffer.s.data,
             "*3\r\n$7\r\nSLAVEOF\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
-            (int)m->hr.address.length, m->hr.address.data,
-            sprintf(b, "%u", m->hr.port), b);
+            m->settings.address.length, m->settings.address.data,
+            sprintf(b, "%u", m->settings.port), b);
         c->flags &= ~RP_MASTER;
     }
     c->flags |= RP_MAINTENANCE;

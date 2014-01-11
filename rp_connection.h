@@ -29,14 +29,14 @@ typedef struct {
     int sockfd;
     time_t time;
     unsigned int flags;
-    rp_string_t auth;
-    time_t ping;
-    struct {
-        rp_string_t address;
-        unsigned short port;
-    } hr;
     in_addr_t address;
     in_port_t port;
+    struct {
+        time_t ping;
+        rp_string_t auth;
+        rp_string_t address;
+        unsigned short port;
+    } settings;
     void *data;
 } rp_connection_t;
 

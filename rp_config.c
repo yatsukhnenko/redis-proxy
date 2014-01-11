@@ -125,11 +125,11 @@ int rp_config_main_setting_listen(rp_config_t *cfg, rp_settings_t *s)
         fprintf(stderr, "%s:%d invalid port %s\n", cfg->filename, cfg->line, ptr);
         return RP_FAILURE;
     }
+    s->listen->settings.address.length = strlen(ip);
+    s->listen->settings.address.data = strcpy(malloc(s->listen->settings.address.length + 1), ip);
+    s->listen->settings.port = port;
     s->listen->address = addr.s_addr;
-    s->listen->hr.address.length = strlen(ip);
-    s->listen->hr.address.data = strcpy(malloc(s->listen->hr.address.length + 1), ip);
     s->listen->port = htons(port);
-    s->listen->hr.port = port;
     return RP_SUCCESS;
 }
 
@@ -138,8 +138,8 @@ int rp_config_main_setting_auth(rp_config_t *cfg, rp_settings_t *s)
     if(rp_config_read_value(cfg) != RP_SUCCESS) {
         return RP_FAILURE;
     }
-    s->listen->auth.length = cfg->buffer.used;
-    s->listen->auth.data = strcpy(malloc(cfg->buffer.used + 1), cfg->buffer.s.data);
+    s->listen->settings.auth.length = cfg->buffer.used;
+    s->listen->settings.auth.data = strcpy(malloc(cfg->buffer.used + 1), cfg->buffer.s.data);
     return RP_SUCCESS;
 }
 
@@ -163,15 +163,15 @@ int rp_config_main_setting_server(rp_config_t *cfg, rp_settings_t *s)
     s->servers->c = c;
     c = &s->servers->c[s->servers->size++];
     c->sockfd = -1;
+    c->settings.ping = 30;
+    c->settings.address.data = "127.0.0.1";
+    c->settings.address.length = strlen(c->settings.address.data);
+    c->settings.port = RP_DEFAULT_PORT;
     c->address = INADDR_LOOPBACK;
-    c->hr.address.data = "127.0.0.1";
-    c->hr.address.length = strlen(c->hr.address.data);
     c->port = htons(RP_DEFAULT_PORT);
-    c->hr.port = RP_DEFAULT_PORT;
     c->data = NULL;
     c->flags = 0;
     c->time = 0;
-    c->ping = 0;
     cfg->ctx = RP_CFG_SRV_CTX;
     return RP_SUCCESS;
 }
@@ -191,8 +191,8 @@ int rp_config_server_setting_address(rp_config_t *cfg, rp_settings_t *s)
     }
     in = (struct in_addr *)he->h_addr_list[0];
     cfg->buffer.used = sprintf(cfg->buffer.s.data, "%s", inet_ntoa(*in));
-    s->servers->c[s->servers->size - 1].hr.address.length = cfg->buffer.used;
-    s->servers->c[s->servers->size - 1].hr.address.data = strcpy(malloc(cfg->buffer.used + 1), cfg->buffer.s.data);
+    s->servers->c[s->servers->size - 1].settings.address.length = cfg->buffer.used;
+    s->servers->c[s->servers->size - 1].settings.address.data = strcpy(malloc(cfg->buffer.used + 1), cfg->buffer.s.data);
     s->servers->c[s->servers->size - 1].address = in->s_addr;
     return RP_SUCCESS;
 }
@@ -208,8 +208,8 @@ int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s)
         fprintf(stderr, "%s:%d invalid port %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
         return RP_FAILURE;
     }
+    s->servers->c[s->servers->size - 1].settings.port = port;
     s->servers->c[s->servers->size - 1].port = htons(port);
-    s->servers->c[s->servers->size - 1].hr.port = port;
     return RP_SUCCESS;
 }
 
@@ -229,7 +229,7 @@ int rp_config_server_setting_ping(rp_config_t *cfg, rp_settings_t *s)
             }
         }
         if(*ptr == '\0') {
-            s->servers->c[s->servers->size - 1].ping = ping;
+            s->servers->c[s->servers->size - 1].settings.ping = ping;
             return RP_SUCCESS;
         }
     }

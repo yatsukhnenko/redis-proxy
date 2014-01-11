@@ -215,8 +215,8 @@ void rp_command_auth(void *data)
 
     if(!(c->flags & RP_AUTHENTICATED) && (
         client->cmd.argc != client->cmd.proto->argc ||
-        c->auth.length != client->cmd.argv[1].length ||
-        strncmp(c->auth.data, client->cmd.argv[1].data, c->auth.length))) {
+        c->settings.auth.length != client->cmd.argv[1].length ||
+        strncmp(c->settings.auth.data, client->cmd.argv[1].data, c->settings.auth.length))) {
         client->buffer.used = sprintf(client->buffer.s.data, "-ERR operation not permitted\r\n");
     } else {
         client->buffer.used = sprintf(client->buffer.s.data, "+OK\r\n");

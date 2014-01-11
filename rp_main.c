@@ -37,14 +37,14 @@ int main(int argc, char **argv)
     }
 
     l.sockfd = -1;
-    l.auth.data = NULL;
-    l.auth.length = RP_NULL_STRLEN;
+    l.settings.ping = 0;
+    l.settings.auth.data = NULL;
+    l.settings.auth.length = RP_NULL_STRLEN;
+    l.settings.address.data = "0.0.0.0";
+    l.settings.address.length = strlen(l.settings.address.data);
+    l.settings.port = RP_DEFAULT_PORT;
     l.address = addr.s_addr;
-    l.hr.address.data = "0.0.0.0";
-    l.hr.address.length = strlen(l.hr.address.data);
     l.port = htons(RP_DEFAULT_PORT);
-    l.hr.port = RP_DEFAULT_PORT;
-    l.ping = 0;
 
     s.listen = &l;
     s.servers = &pool;
@@ -80,7 +80,8 @@ int main(int argc, char **argv)
     if(rp_event_handler_init(&eh, RP_CONCURRENT_CONNECTIONS) == NULL) {
         return EXIT_FAILURE;
     }
-    syslog(LOG_INFO, "The proxy is now ready to accept connections on %s:%d", l.hr.address.data, l.hr.port);
+    syslog(LOG_INFO, "The proxy is now ready to accept connections on %s:%d",
+        l.settings.address.data, l.settings.port);
     for(;;) {
         if((pid = fork()) < 0) {
             syslog(LOG_ERR, "fork at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
