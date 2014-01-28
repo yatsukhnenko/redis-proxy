@@ -36,7 +36,6 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
         timeout.tv_usec = 100000;
         for(i = 0; i < eh->wait(eh, &timeout); i++) {
             a = eh->ready[i].data;
-            a->time = t;
             if(a->flags & RP_CLIENT) {
                 client = a->data;
                 if(eh->ready[i].events & RP_EVENT_READ) {
@@ -134,6 +133,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                     }
                 }
             } else if(a->flags & RP_SERVER) {
+                a->time = t;
                 server = a->data;
                 if(eh->ready[i].events & RP_EVENT_READ) {
                     if(server->client != NULL) {
@@ -239,16 +239,15 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                             rp_set_slaveof(a, NULL);
                             syslog(LOG_INFO, "Set %s:%d slave of no one",
                                 a->settings.address.data, a->settings.port);
-                        } else if(!(a->flags & RP_MASTER)) {
+                        } else if(!(a->flags & RP_MASTER) && server->master != master) {
                             if(master->flags & RP_MAINTENANCE) {
                                 /* master is not ready */
                                 continue;
-                            } else if(server->master != master) {
-                                rp_set_slaveof(a, master);
-                                syslog(LOG_INFO, "Set %s:%d slave of %s:%d",
-                                    a->settings.address.data, a->settings.port,
-                                    master->settings.address.data, master->settings.port);
                             }
+                            rp_set_slaveof(a, master);
+                            syslog(LOG_INFO, "Set %s:%d slave of %s:%d",
+                                a->settings.address.data, a->settings.port,
+                                master->settings.address.data, master->settings.port);
                         }
                         /* send request to server */
                         if(rp_send(a->sockfd, &server->buffer) != RP_SUCCESS) {

@@ -90,8 +90,8 @@ int main(int argc, char **argv)
             while(wait(&i) > 0);
         } else {
             setsid();
-            if(pw != NULL) {
-                setuid(pw->pw_uid);
+            if(pw != NULL && setuid(pw->pw_uid) != 0) {
+                syslog(LOG_ERR, "setuid at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
             }
             return rp_connection_handler_loop(&l, &eh, &pool);
         }
