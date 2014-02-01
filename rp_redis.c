@@ -38,7 +38,7 @@ static rp_command_proto_t rp_commands_4[] = {
     { "SORT", RP_SLAVE_COMMAND,                -2, NULL            },
     { "SPOP", RP_MASTER_COMMAND,                2, NULL            },
     { "SREM", RP_MASTER_COMMAND,               -3, NULL            },
-    { "TIME", RP_LOCAL_COMMAND,                 1, rp_command_time },
+    { "TIME", RP_SLAVE_COMMAND,                 1, NULL            },
     { "TYPE", RP_SLAVE_COMMAND,                 2, NULL            },
     { "ZADD", RP_MASTER_COMMAND,               -4, NULL            },
     { "ZREM", RP_MASTER_COMMAND,               -3, NULL            },
@@ -208,7 +208,7 @@ rp_command_proto_t *rp_command_lookup(rp_string_t *name)
     return NULL;
 }
 
-void rp_command_auth(void *data)
+rp_string_t *rp_command_auth(void *data)
 {
     rp_connection_t *c = data;
     rp_client_t *client = c->data;
@@ -216,52 +216,24 @@ void rp_command_auth(void *data)
     if(!(c->flags & RP_AUTHENTICATED) && (
         client->cmd.argc != client->cmd.proto->argc ||
         c->settings.auth.length != client->cmd.argv[1].length ||
-        strncmp(c->settings.auth.data, client->cmd.argv[1].data, c->settings.auth.length))) {
-        client->buffer.used = sprintf(client->buffer.s.data, "-ERR operation not permitted\r\n");
-    } else {
-        client->buffer.used = sprintf(client->buffer.s.data, "+OK\r\n");
-        c->flags |= RP_AUTHENTICATED;
+        strncmp(c->settings.auth.data, client->cmd.argv[1].data, c->settings.auth.length))
+    ) {
+        return rp_string("-ERR operation not permitted");
     }
-    client->buffer.r = client->buffer.w = 0;
-    c->flags |= RP_ALREADY;
+    c->flags |= RP_AUTHENTICATED;
+    return rp_string("+OK");
 }
 
-void rp_command_ping(void *data)
+rp_string_t *rp_command_ping(void *data)
 {
-    rp_connection_t *c = data;
-    rp_client_t *client = c->data;
-
-    client->buffer.r = client->buffer.w = 0;
-    client->buffer.used = sprintf(client->buffer.s.data, "+PONG\r\n");
-    c->flags |= RP_ALREADY;
+    return rp_string("+PONG");
 }
 
-void rp_command_quit(void *data)
+rp_string_t *rp_command_quit(void *data)
 {
     rp_connection_t *c = data;
-    rp_client_t *client = c->data;
 
-    client->buffer.r = client->buffer.w = 0;
-    client->buffer.used = sprintf(client->buffer.s.data, "+OK\r\n");
+
     c->flags |= RP_SHUTDOWN;
-    c->flags |= RP_ALREADY;
-}
-
-void rp_command_time(void *data)
-{
-    int s, u;
-    struct timeval tv;
-    char sec[16], usec[16];
-    rp_connection_t *c = data;
-    rp_client_t *client = c->data;
-
-    if(gettimeofday(&tv, NULL) < 0) {
-        tv.tv_sec = 0;
-        tv.tv_usec = 0;
-    }
-    s = sprintf(sec, "%d", (int)tv.tv_sec);
-    u = sprintf(usec, "%ld", (long)tv.tv_usec);
-    client->buffer.r = client->buffer.w = 0;
-    client->buffer.used = sprintf(client->buffer.s.data, "*2\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n", s, sec, u, usec);
-    c->flags |= RP_ALREADY;
+    return rp_string("+OK");
 }

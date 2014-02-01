@@ -8,7 +8,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
     int i, j;
     time_t t;
     rp_event_t e;
-    rp_string_t *err;
+    rp_string_t *str;
     rp_client_t *client;
     rp_server_t *server;
     rp_queue_t qget, qset;
@@ -47,45 +47,34 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         e.data = a;
                         e.events = RP_EVENT_READ;
                         eh->del(eh, a->sockfd, &e);
-                        err = NULL;
+                        str = NULL;
                         if(j != RP_SUCCESS) {
-                            if((err = rp_string("-ERR syntax error")) == NULL) {
-                                rp_connection_close(a, eh, s);
-                                continue;
-                            }
+                            str = rp_string("-ERR syntax error");
                         } else if((client->cmd.proto = rp_command_lookup(client->cmd.argv)) == NULL) {
-                            if((err = rp_string("-ERR unknown command '%s'", client->cmd.argv)) == NULL) {
-                                rp_connection_close(a, eh, s);
-                                continue;
-                            }
+                            str = rp_string("-ERR unknown command '%s'", client->cmd.argv);
                         } else if(!(a->flags & RP_AUTHENTICATED) && !(client->cmd.proto->flags & RP_WITHOUT_AUTH)) {
-                            if((err = rp_string("-ERR operation not permitted")) == NULL) {
-                                rp_connection_close(a, eh, s);
-                                continue;
-                            }
+                            str = rp_string("-ERR operation not permitted");
                         } else if((client->cmd.proto->argc < 0 && client->cmd.argc < abs(client->cmd.proto->argc))
                             || (client->cmd.proto->argc > 0 && client->cmd.argc != client->cmd.proto->argc)) {
-                            if((err = rp_string("-ERR wrong number of arguments for '%s' command", client->cmd.argv)) == NULL) {
-                                rp_connection_close(a, eh, s);
-                                continue;
-                            }
+                            str = rp_string("-ERR wrong number of arguments for '%s' command", client->cmd.argv);
+                        } else {
+                            str = client->cmd.proto->flags & RP_LOCAL_COMMAND ? client->cmd.proto->handler(a) : rp_string(NULL);
                         }
-                        if(err != NULL) {
+                        if(str == NULL) {
+                            rp_connection_close(a, eh, s);
+                            continue;
+                        } else if(str->data != NULL) {
                             client->buffer.r = client->buffer.w = 0;
-                            client->buffer.used = sprintf(client->buffer.s.data, "%.*s\r\n", err->length, err->data);
+                            client->buffer.used = sprintf(client->buffer.s.data, "%.*s\r\n", str->length, str->data);
                             e.events = RP_EVENT_WRITE;
                             eh->add(eh, a->sockfd, &e);
                             a->flags |= RP_ALREADY;
-                            free(err->data);
-                            free(err);
+                            free(str->data);
+                            free(str);
                             continue;
                         }
-                        if(client->cmd.proto->flags & RP_LOCAL_COMMAND) {
-                            client->cmd.proto->handler(a);
-                            e.events = RP_EVENT_WRITE;
-                            eh->add(eh, a->sockfd, &e);
-                            continue;
-                        } else if(client->cmd.proto->flags & RP_MASTER_COMMAND) {
+                        free(str);
+                        if(client->cmd.proto->flags & RP_MASTER_COMMAND) {
                             if((c = master) == NULL) {
                                 for(j = 0; j < s->size; j++) {
                                     s->c[j].time = 0;

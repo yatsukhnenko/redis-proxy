@@ -4,15 +4,20 @@ rp_string_t *rp_string(const char *format, ...)
 {
     size_t l;
     va_list ap;
-    char *data, *ptr, *str = (char *)format;
+    char *data, *ptr, *str;
     rp_string_t *arg, *s = NULL;
 
     if((s = (rp_string_t *)malloc(sizeof(rp_string_t))) == NULL) {
         syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
     }
-    s->length = 0;
     s->data = NULL;
+    if(format == NULL) {
+        s->length = RP_NULL_STRLEN;
+        return s;
+    }
+    s->length = 0;
+    str = (char *)format;
     if((ptr = strchr(str, '%')) != NULL) {
         va_start(ap, format);
         do {

@@ -21,7 +21,7 @@ typedef struct {
     char *name;
     unsigned int flags;
     int argc;
-    void (*handler)(void *data);
+    rp_string_t *(*handler)(void *data);
 } rp_command_proto_t;
 
 typedef struct {
@@ -32,9 +32,8 @@ typedef struct {
 } rp_command_t;
 
 rp_command_proto_t *rp_command_lookup(rp_string_t *name);
-void rp_command_auth(void *data);
-void rp_command_ping(void *data);
-void rp_command_quit(void *data);
-void rp_command_time(void *data);
+rp_string_t *rp_command_auth(void *data);
+rp_string_t *rp_command_ping(void *data);
+rp_string_t *rp_command_quit(void *data);
 
 #endif /* _RP_REDIS_H_ */
