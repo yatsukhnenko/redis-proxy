@@ -18,8 +18,7 @@
 #define RP_MASTER        0x40000000
 
 #define RP_ALREADY       0x01000000
-#define RP_INPROGRESS    0x02000000
-#define RP_SHUTDOWN      0x04000000
+#define RP_SHUTDOWN      0x02000000
 
 #define RP_ESTABLISHED   0x00100000
 #define RP_MAINTENANCE   0x00200000
@@ -53,17 +52,19 @@ typedef struct {
 } rp_client_t;
 
 typedef struct {
+    rp_queue_t queue;
     rp_buffer_t buffer;
+    rp_buffer_t in, out;
     rp_connection_t *client;
     rp_connection_t *master;
 } rp_server_t;
 
 
-int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_connection_pool_t *s);
+int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_connection_pool_t *srv);
 rp_connection_t *rp_connection_accept(rp_connection_t *l);
 rp_connection_t *rp_server_connect(rp_connection_t *c);
-void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connection_pool_t *s);
-rp_connection_t *rp_server_lookup(rp_connection_pool_t *s);
+void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connection_pool_t *srv);
+rp_connection_t *rp_server_lookup(rp_connection_pool_t *srv);
 void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m);
 int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd);
 int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd);

@@ -81,8 +81,8 @@ char *rp_strstr(rp_string_t *s, const char *needle)
 
 long int rp_strtol(rp_string_t *s)
 {
-    char sign = 1;
-    long int i = 0;
+    long i = 0;
+    int sign = 1;
 
     while(s->length > 0) {
         if(*s->data == '-') {

@@ -29,6 +29,7 @@ typedef struct {
     unsigned int i;
     rp_string_t *argv;
     rp_command_proto_t *proto;
+    rp_string_t txt;
 } rp_command_t;
 
 rp_command_proto_t *rp_command_lookup(rp_string_t *name);

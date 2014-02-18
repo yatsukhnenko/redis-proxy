@@ -1,47 +1,43 @@
 #include "rp_queue.h"
 
-rp_queue_t *rp_queue_init(rp_queue_t *queue, size_t size)
+int rp_queue_push(rp_queue_t *queue, void *data)
 {
-    int alloc = 0;
-    if(queue == NULL) {
-        if((queue = malloc(sizeof(rp_queue_t))) == NULL) {
-            syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-            return NULL;
-        }
-        alloc = 1;
-    }
-    if((queue->data = calloc(size, sizeof(void *))) == NULL) {
-        syslog(LOG_ERR, "calloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-        if(alloc) {
-            free(queue);
-        }
-        return NULL;
-    }
-    memset(queue->data, 0, size * sizeof(void *));
-    queue->current = queue->last = 0;
-    queue->size = size;
-    return queue;
-}
+    rp_queue_element_t *qe;
 
-void rp_queue_push(rp_queue_t *queue, void *ptr)
-{
-    queue->data[queue->last++] = ptr;
-    if(queue->last == queue->size) {
-        queue->last = 0;
+    if((qe = malloc(sizeof(rp_queue_element_t))) == NULL) {
+        syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+        return RP_FAILURE;
     }
+    if(queue->size) {
+        qe->prev = queue->last;
+        queue->last->next = qe;
+    } else {
+        qe->next = qe->prev = NULL;
+        queue->first = qe;
+    }
+    qe->data = data;
+    qe->next = NULL;
+    queue->last = qe;
+    queue->size++;
+    return RP_SUCCESS;
 }
 
 
 void *rp_queue_shift(rp_queue_t *queue)
 {
-    void *ptr = NULL;
+    void *data;
+    rp_queue_element_t *qe;
 
-    if(queue->current != queue->last) {
-        ptr = queue->data[queue->current];
-        queue->data[queue->current++] = NULL;
-        if(queue->current == queue->size) {
-            queue->current = 0;
+    if((qe = queue->first) != NULL) {
+        if(--queue->size) {
+            queue->first = qe->next;
+            queue->first->prev = NULL;
+        } else {
+            queue->first = queue->last = NULL;
         }
+        data = qe->data;
+        free(qe);
+        return data;
     }
-    return ptr;
+    return NULL;
 }

@@ -63,7 +63,7 @@ int rp_recv(int sockfd, rp_buffer_t *buffer)
     int i;
 
     for(;;) {
-        if(buffer->used + RP_BUFFER_SIZE > buffer->s.length) {
+        if((int)buffer->used + RP_BUFFER_SIZE > buffer->s.length) {
             if(rp_buffer_resize(buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
                 break;
             }
@@ -85,7 +85,7 @@ int rp_send(int sockfd, rp_buffer_t *buffer)
 {
     int i;
 
-    while(buffer->w < buffer->used) {
+    while(buffer->w < (int)buffer->used) {
         if((i = send(sockfd, &buffer->s.data[buffer->w], buffer->used - buffer->w, MSG_DONTWAIT | MSG_NOSIGNAL)) <= 0) {
             if(i && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 break;

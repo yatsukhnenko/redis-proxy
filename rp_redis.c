@@ -233,7 +233,6 @@ rp_string_t *rp_command_quit(void *data)
 {
     rp_connection_t *c = data;
 
-
     c->flags |= RP_SHUTDOWN;
     return rp_string("+OK");
 }

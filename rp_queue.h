@@ -3,15 +3,19 @@
 
 #include "rp_common.h"
 
+typedef struct rp_queue_element {
+    void *data;
+    struct rp_queue_element *prev;
+    struct rp_queue_element *next;
+} rp_queue_element_t;
+
 typedef struct {
-    void **data;
     size_t size;
-    unsigned int current;
-    unsigned int last;
+    rp_queue_element_t *first;
+    rp_queue_element_t *last;
 } rp_queue_t;
 
-rp_queue_t *rp_queue_init(rp_queue_t *queue, size_t size);
-void rp_queue_push(rp_queue_t *queue, void *ptr);
+int rp_queue_push(rp_queue_t *queue, void *data);
 void *rp_queue_shift(rp_queue_t *queue);
 
 #endif /* _RP_QUEUE_H_ */

@@ -30,6 +30,7 @@ typedef struct {
     unsigned int w;
 } rp_buffer_t;
 
-int rp_buffer_resize(rp_buffer_t *buf, int delta);
+int rp_buffer_resize(rp_buffer_t *buffer, int delta);
+int rp_buffer_append(rp_buffer_t *buffer, rp_string_t *s);
 
 #endif /* _RP_COMMON_H_ */
