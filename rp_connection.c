@@ -82,6 +82,8 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                             rp_connection_close(c, eh, srv);
                             continue;
                         }
+                        c->flags &= ~RP_ALREADY;
+                        client->cmd.i = RP_NULL_STRLEN;
                         client->cmd.argc = RP_NULL_STRLEN - 1;
                         client->buffer.r = client->buffer.w = 0;
                         client->buffer.used = 0;
@@ -107,9 +109,11 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         eh->del(eh, c->sockfd, &e);
                         client->buffer.r = client->buffer.w = 0;
                         client->buffer.used = 0;
+                        client->cmd.i = RP_NULL_STRLEN;
                         client->cmd.argc = RP_NULL_STRLEN - 1;
                         e.events = RP_EVENT_READ;
                         eh->add(eh, c->sockfd, &e);
+                        c->flags &= ~RP_ALREADY;
                     }
                 }
             } else if(c->flags & RP_SERVER) {
@@ -149,7 +153,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                                 rp_connection_close(server->client, eh, srv);
                                 continue;
                             }
-                            if(rv == RP_SUCCESS) {
+                            if(rv != RP_UNKNOWN) {
                                 client->server = NULL;
                                 server->client->flags |= RP_ALREADY;
                                 server->client = NULL;

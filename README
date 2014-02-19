@@ -24,18 +24,18 @@ Options:
 2. EVAL, SYNC, DEBUG, CLIENT, CONFIG, SELECT, MIGRATE, MONITOR, PUBLISH, SLAVEOF, SLOWLOG, SHUTDOWN, PSUBSCRIBE, UNSUBSCRIBE, PUNSUBSCRIBE commands are always fails at this time
 3. Low productivity compared to redis server
    redis-benchmark:
-       PING_INLINE: 71428.57 requests per second
-       PING_BULK: 77519.38 requests per second
-       SET: 2940.31 requests per second
-       GET: 5144.03 requests per second
-       INCR: 3565.06 requests per second
-       LPUSH: 3810.98 requests per second
-       LPOP: 3875.97 requests per second
-       SADD: 4024.15 requests per second
-       SPOP: 4098.36 requests per second
-       LPUSH (needed to benchmark LRANGE): 3872.97 requests per second
-       LRANGE_100 (first 100 elements): 4807.69 requests per second
-       LRANGE_300 (first 300 elements): 2789.40 requests per second
-       LRANGE_500 (first 450 elements): 2543.24 requests per second
-       LRANGE_600 (first 600 elements): 2105.71 requests per second
-       MSET (10 keys): 2643.40 requests per second
+       PING_INLINE: 50761.42 requests per second
+       PING_BULK: 44444.45 requests per second
+       SET: 38167.94 requests per second
+       GET: 41666.67 requests per second
+       INCR: 35087.72 requests per second
+       LPUSH: 35087.72 requests per second
+       LPOP: 36496.35 requests per second
+       SADD: 36363.64 requests per second
+       SPOP: 35587.19 requests per second
+       LPUSH (needed to benchmark LRANGE): 37593.98 requests per second
+       LRANGE_100 (first 100 elements): 19801.98 requests per second
+       LRANGE_300 (first 300 elements): 12269.94 requests per second
+       LRANGE_500 (first 450 elements): 9624.64 requests per second
+       LRANGE_600 (first 600 elements): 7662.84 requests per second
+       MSET (10 keys): 30030.03 requests per second
