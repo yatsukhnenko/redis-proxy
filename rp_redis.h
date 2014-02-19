@@ -27,7 +27,8 @@ typedef struct {
 typedef struct {
     int argc;
     unsigned int i;
-    rp_string_t *argv;
+    rp_string_t argv;
+    rp_string_t name;
     rp_command_proto_t *proto;
     rp_string_t txt;
 } rp_command_t;

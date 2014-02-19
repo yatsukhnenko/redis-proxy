@@ -215,8 +215,8 @@ rp_string_t *rp_command_auth(void *data)
 
     if(!(c->flags & RP_AUTHENTICATED) && (
         client->cmd.argc != client->cmd.proto->argc ||
-        c->settings.auth.length != client->cmd.argv[1].length ||
-        strncmp(c->settings.auth.data, client->cmd.argv[1].data, c->settings.auth.length))
+        c->settings.auth.length != client->cmd.argv.length ||
+        strncmp(c->settings.auth.data, client->cmd.argv.data, c->settings.auth.length))
     ) {
         return rp_string("-ERR operation not permitted");
     }
