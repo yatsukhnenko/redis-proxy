@@ -569,7 +569,7 @@ int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd)
                     s.length--;
                     if((i = rp_strtol(&s)) < RP_NULL_STRLEN || s.data != ptr) {
                         return RP_FAILURE;
-                    } else if(i <= 0) {
+                    } else if(i < 0) {
                         return RP_SUCCESS;
                     }
                     cmd->argc = 1;
