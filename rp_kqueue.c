@@ -37,17 +37,24 @@ int rp_kqueue_add(struct rp_event_handler *eh, int sockfd, rp_event_t *e)
 
     if(e->events & RP_EVENT_READ) {
         EV_SET(&event[i++], sockfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
+        if(eh->events[sockfd].events & RP_EVENT_READ) {
+            e->events &= ~RP_EVENT_READ;
+        }
     }
     if(e->events & RP_EVENT_WRITE) {
         EV_SET(&event[i++], sockfd, EVFILT_WRITE, EV_ADD, 0, 0, NULL);
+        if(eh->events[sockfd].events & RP_EVENT_WRITE) {
+            e->events &= ~RP_EVENT_WRITE;
+        }
     }
-    if(kevent(kd->kqfd, event, i, NULL, 0, NULL) < 0) {
-        syslog(LOG_ERR, "kevent at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-        return RP_FAILURE;
+    if(e->events) {
+        if(kevent(kd->kqfd, event, i, NULL, 0, NULL) < 0) {
+            syslog(LOG_ERR, "kevent at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+            return RP_FAILURE;
+        }
+        eh->events[sockfd].events |= e->events;
+        eh->events[sockfd].data = e->data;
     }
-    eh->events[sockfd].events |= e->events;
-    eh->events[sockfd].data = e->data;
-
     return RP_SUCCESS;
 }
 

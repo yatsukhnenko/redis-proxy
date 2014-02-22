@@ -37,24 +37,30 @@ int rp_epoll_add(rp_event_handler_t *eh, int sockfd, rp_event_t *e)
     struct epoll_event event;
     rp_epoll_data_t *ed = eh->data;
 
-    op = !eh->events[sockfd].events ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
-    e->events |= eh->events[sockfd].events;
-
-    event.data.fd = sockfd;
-    event.events = EPOLLERR | EPOLLHUP;
+    event.events = 0;
     if(e->events & RP_EVENT_READ) {
         event.events |= EPOLLIN;
+        if(eh->events[sockfd].events & RP_EVENT_READ) {
+            e->events &= ~RP_EVENT_READ;
+        }
     }
     if(e->events & RP_EVENT_WRITE) {
         event.events |= EPOLLOUT;
+        if(eh->events[sockfd].events & RP_EVENT_WRITE) {
+            e->events &= ~RP_EVENT_WRITE;
+        }
     }
-    if(epoll_ctl(ed->epfd, op, sockfd, &event)) {
-        syslog(LOG_ERR, "epoll_ctl at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-        return RP_FAILURE;
+    if(e->events) {
+        event.data.fd = sockfd;
+        event.events |= EPOLLERR | EPOLLHUP;
+        op = !eh->events[sockfd].events ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
+        if(epoll_ctl(ed->epfd, op, sockfd, &event)) {
+            syslog(LOG_ERR, "epoll_ctl at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
+            return RP_FAILURE;
+        }
+        eh->events[sockfd].events |= e->events;
+        eh->events[sockfd].data = e->data;
     }
-    eh->events[sockfd].events = e->events;
-    eh->events[sockfd].data = e->data;
-
     return RP_SUCCESS;
 }
 
