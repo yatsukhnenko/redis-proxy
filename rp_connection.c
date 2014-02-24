@@ -3,7 +3,7 @@
 
 static rp_connection_t *master = NULL;
 
-int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_connection_pool_t *srv)
+int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
 {
     time_t t;
     int i, rv;
@@ -12,12 +12,17 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
     rp_client_t *client;
     rp_server_t *server;
     struct timeval timeout;
+    rp_event_handler_t eh;
     rp_connection_t *c;
 
+    /* initialize event handler */
+    if(rp_event_handler_init(&eh, RP_CONCURRENT_CONNECTIONS) == NULL) {
+        return EXIT_FAILURE;
+    }
     /* handle events on listen socket */
     e.data = l;
     e.events = RP_EVENT_READ;
-    if(eh->add(eh, l->sockfd, &e) != RP_SUCCESS) {
+    if(eh.add(&eh, l->sockfd, &e) != RP_SUCCESS) {
         return EXIT_FAILURE;
     }
 
@@ -26,19 +31,19 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
         time(&t);
         timeout.tv_sec = 0;
         timeout.tv_usec = 100000;
-        for(i = 0; i < eh->wait(eh, &timeout); i++) {
-            c = eh->ready[i].data;
+        for(i = 0; i < eh.wait(&eh, &timeout); i++) {
+            c = eh.ready[i].data;
             if(c->flags & RP_CLIENT) {
                 client = c->data;
-                if(eh->ready[i].events & RP_EVENT_READ) {
+                if(eh.ready[i].events & RP_EVENT_READ) {
                     if(rp_recv(c->sockfd, &client->buffer) != RP_SUCCESS) {
-                        rp_connection_close(c, eh, srv);
+                        rp_connection_close(c, &eh, srv);
                         continue;
                     }
                     if((rv = rp_request_parse(&client->buffer, &client->cmd)) != RP_UNKNOWN) {
                         e.data = c;
                         e.events = RP_EVENT_READ;
-                        eh->del(eh, c->sockfd, &e);
+                        eh.del(&eh, c->sockfd, &e);
                         sp = NULL;
                         if(rv != RP_SUCCESS) {
                             sp = rp_string("-ERR syntax error");
@@ -54,11 +59,11 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                                 ? client->cmd.proto->handler(c) : rp_string(NULL);
                         }
                         if(sp == NULL) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         } else if(sp->data != NULL) {
                             e.events = RP_EVENT_WRITE;
-                            eh->add(eh, c->sockfd, &e);
+                            eh.add(&eh, c->sockfd, &e);
                             client->buffer.r = client->buffer.w = 0;
                             client->buffer.used = sprintf(client->buffer.s.data, "%.*s\r\n", sp->length, sp->data);
                             c->flags |= RP_ALREADY;
@@ -70,16 +75,16 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         client->server = client->cmd.proto->flags & RP_MASTER_COMMAND
                             ? master : rp_server_lookup(srv);
                         if(client->server == NULL) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         server = client->server->data;
                         if(rp_buffer_append(&server->out, &client->cmd.txt) != RP_SUCCESS) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         } else if(rp_queue_push(&server->queue, c) != RP_SUCCESS) {
                             server->out.used -= client->cmd.txt.length;
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         c->flags &= ~RP_ALREADY;
@@ -87,42 +92,42 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         client->cmd.argc = RP_NULL_STRLEN - 1;
                         client->buffer.r = client->buffer.w = 0;
                         client->buffer.used = 0;
-                        if(!(eh->events[c->sockfd].events & RP_EVENT_WRITE)) {
+                        if(!(eh.events[c->sockfd].events & RP_EVENT_WRITE)) {
                             e.data = client->server;
                             e.events = RP_EVENT_WRITE;
-                            eh->add(eh, client->server->sockfd, &e);
+                            eh.add(&eh, client->server->sockfd, &e);
                         }
                     }
                 }
-                if(eh->ready[i].events & RP_EVENT_WRITE) {
+                if(eh.ready[i].events & RP_EVENT_WRITE) {
                     if(rp_send(c->sockfd, &client->buffer) != RP_SUCCESS) {
-                        rp_connection_close(c, eh, srv);
+                        rp_connection_close(c, &eh, srv);
                         continue;
                     }
                     if(client->buffer.w == client->buffer.used && c->flags & RP_ALREADY) {
                         if(c->flags & RP_SHUTDOWN) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         e.data = c;
                         e.events = RP_EVENT_WRITE;
-                        eh->del(eh, c->sockfd, &e);
+                        eh.del(&eh, c->sockfd, &e);
                         client->buffer.r = client->buffer.w = 0;
                         client->buffer.used = 0;
                         client->cmd.i = RP_NULL_STRLEN;
                         client->cmd.argc = RP_NULL_STRLEN - 1;
                         e.events = RP_EVENT_READ;
-                        eh->add(eh, c->sockfd, &e);
+                        eh.add(&eh, c->sockfd, &e);
                         c->flags &= ~RP_ALREADY;
                     }
                 }
             } else if(c->flags & RP_SERVER) {
                 c->time = t;
                 server = c->data;
-                if(eh->ready[i].events & RP_EVENT_READ) {
+                if(eh.ready[i].events & RP_EVENT_READ) {
                     if(c->flags & RP_MAINTENANCE) {
                         if(rp_recv(c->sockfd, &server->buffer) != RP_SUCCESS) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         if(*server->buffer.s.data == RP_STATUS_PREFIX) {
@@ -130,12 +135,12 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                             if(server->queue.size) {
                                 e.data = c;
                                 e.events = RP_EVENT_WRITE;
-                                eh->add(eh, c->sockfd, &e);
+                                eh.add(&eh, c->sockfd, &e);
                             }
                         }
                     } else {
                         if(rp_recv(c->sockfd, &server->in) != RP_SUCCESS) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         while(server->in.r < server->in.used) {
@@ -143,14 +148,15 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                                 server->client = rp_queue_shift(&server->queue);
                                 e.data = server->client;
                                 e.events = RP_EVENT_WRITE;
-                                eh->add(eh, server->client->sockfd, &e);
+                                eh.add(&eh, server->client->sockfd, &e);
                             }
                             client = server->client->data;
                             s.data = &server->in.s.data[server->in.r];
                             rv = rp_reply_parse(&server->in, &client->cmd);
                             s.length = &server->in.s.data[server->in.r] - s.data;
                             if(rp_buffer_append(&client->buffer, &s) != RP_SUCCESS) {
-                                rp_connection_close(server->client, eh, srv);
+                                rp_connection_close(server->client, &eh, srv);
+                                server->client = NULL;
                                 continue;
                             }
                             if(rv != RP_UNKNOWN) {
@@ -167,11 +173,11 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         }
                     }
                 }
-                if(eh->ready[i].events & RP_EVENT_WRITE) {
+                if(eh.ready[i].events & RP_EVENT_WRITE) {
                     if(!(c->flags & RP_ESTABLISHED)) {
                         /* check previous connection attempt */
                         if(rp_server_connect(c) == NULL) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                     }
@@ -196,26 +202,26 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                         }
                         /* send request to server */
                         if(rp_send(c->sockfd, &server->buffer) != RP_SUCCESS) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         if(server->buffer.w == server->buffer.used) {
                             /* all data transmitted to server */
                             e.data = c;
                             e.events = RP_EVENT_WRITE;
-                            eh->del(eh, c->sockfd, &e);
+                            eh.del(&eh, c->sockfd, &e);
                             server->buffer.r = server->buffer.w = 0;
                             server->buffer.used = 0;
                         }
                     } else {
                         if(rp_send(c->sockfd, &server->out) != RP_SUCCESS) {
-                            rp_connection_close(c, eh, srv);
+                            rp_connection_close(c, &eh, srv);
                             continue;
                         }
                         if(server->out.w == server->out.used) {
                             e.data = c;
                             e.events = RP_EVENT_WRITE;
-                            eh->del(eh, c->sockfd, &e);
+                            eh.del(&eh, c->sockfd, &e);
                             server->out.r = server->out.w = 0;
                             server->out.used = 0;
                         }
@@ -226,7 +232,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                 if((c = rp_connection_accept(l)) != NULL) {
                     e.data = c;
                     e.events = RP_EVENT_READ;
-                    eh->add(eh, c->sockfd, &e);
+                    eh.add(&eh, c->sockfd, &e);
                 }
             }
         }
@@ -239,7 +245,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                     if(rp_server_connect(c) != NULL) {
                         e.data = c;
                         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
-                        eh->add(eh, c->sockfd, &e);
+                        eh.add(&eh, c->sockfd, &e);
                     }
                 }
             } else {
@@ -251,7 +257,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_event_handler_t *eh, rp_co
                     server->buffer.used = sprintf(server->buffer.s.data, "*1\r\n$4\r\nPING\r\n");
                     e.data = c;
                     e.events = RP_EVENT_WRITE;
-                    eh->add(eh, c->sockfd, &e);
+                    eh.add(&eh, c->sockfd, &e);
                 }
             }
         }

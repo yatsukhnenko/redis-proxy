@@ -13,9 +13,8 @@ int main(int argc, char **argv)
     rp_settings_t s;
     rp_connection_t l = { 0 };
     struct passwd *pw = NULL;
-    rp_event_handler_t eh = { 0 };
     char c, *ptr, *filename = NULL;
-    rp_connection_pool_t pool = { 0 };
+    rp_connection_pool_t srv = { 0 };
     struct in_addr addr = { INADDR_ANY };
 
     for(i = 1; i < argc; i++) {
@@ -47,7 +46,7 @@ int main(int argc, char **argv)
     l.port = htons(RP_DEFAULT_PORT);
 
     s.listen = &l;
-    s.servers = &pool;
+    s.servers = &srv;
 
     if(filename != NULL) {
         if(rp_config_file_parse(filename, &s) != RP_SUCCESS) {
@@ -58,7 +57,7 @@ int main(int argc, char **argv)
             return EXIT_SUCCESS;
         }
     }
-    if(!pool.size) {
+    if(!srv.size) {
         fprintf(stderr, "at least one server must be specified\n");
         return EXIT_FAILURE;
     }
@@ -77,9 +76,6 @@ int main(int argc, char **argv)
     if(rp_listen(&l.sockfd, l.address, l.port) == NULL) {
         return EXIT_FAILURE;
     }
-    if(rp_event_handler_init(&eh, RP_CONCURRENT_CONNECTIONS) == NULL) {
-        return EXIT_FAILURE;
-    }
     syslog(LOG_INFO, "The proxy is now ready to accept connections on %s:%d",
         l.settings.address.data, l.settings.port);
     for(;;) {
@@ -93,7 +89,7 @@ int main(int argc, char **argv)
             if(pw != NULL && setuid(pw->pw_uid) != 0) {
                 syslog(LOG_ERR, "setuid at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
             }
-            return rp_connection_handler_loop(&l, &eh, &pool);
+            return rp_connection_handler_loop(&l, &srv);
         }
     }
     return EXIT_SUCCESS;
