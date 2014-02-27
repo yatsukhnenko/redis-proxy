@@ -60,7 +60,7 @@ int *rp_listen(int *sockfd, in_addr_t address, in_port_t port)
 
 int rp_recv(int sockfd, rp_buffer_t *buffer)
 {
-    int i;
+    ssize_t i;
 
     for(;;) {
         if((int)buffer->used + RP_BUFFER_SIZE > buffer->s.length) {
@@ -68,7 +68,8 @@ int rp_recv(int sockfd, rp_buffer_t *buffer)
                 break;
             }
         }
-        if((i = recv(sockfd, &buffer->s.data[buffer->used], RP_BUFFER_SIZE - 1, MSG_DONTWAIT)) <= 0) {
+        if((i = recv(sockfd, &buffer->s.data[buffer->used],
+            buffer->s.length - buffer->used - 1, MSG_DONTWAIT)) <= 0) {
             if(i && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 break;
             }
@@ -83,10 +84,11 @@ int rp_recv(int sockfd, rp_buffer_t *buffer)
 
 int rp_send(int sockfd, rp_buffer_t *buffer)
 {
-    int i;
+    ssize_t i;
 
     while(buffer->w < (int)buffer->used) {
-        if((i = send(sockfd, &buffer->s.data[buffer->w], buffer->used - buffer->w, MSG_DONTWAIT | MSG_NOSIGNAL)) <= 0) {
+        if((i = send(sockfd, &buffer->s.data[buffer->w],
+            buffer->used - buffer->w, MSG_DONTWAIT | MSG_NOSIGNAL)) <= 0) {
             if(i && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 break;
             }
