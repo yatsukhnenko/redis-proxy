@@ -208,7 +208,7 @@ rp_command_proto_t *rp_command_lookup(rp_string_t *name)
     return NULL;
 }
 
-rp_string_t *rp_command_auth(void *data)
+rp_string_t *rp_command_auth(rp_string_t *s, void *data)
 {
     rp_connection_t *c = data;
     rp_client_t *client = c->data;
@@ -218,21 +218,21 @@ rp_string_t *rp_command_auth(void *data)
         c->settings.auth.length != client->cmd.argv.length ||
         strncmp(c->settings.auth.data, client->cmd.argv.data, c->settings.auth.length))
     ) {
-        return rp_string("-ERR operation not permitted");
+        return rp_sprintf(s, "-ERR operation not permitted");
     }
     c->flags |= RP_AUTHENTICATED;
-    return rp_string("+OK");
+    return rp_sprintf(s, "+OK");
 }
 
-rp_string_t *rp_command_ping(void *data)
+rp_string_t *rp_command_ping(rp_string_t *s, void *data)
 {
-    return rp_string("+PONG");
+    return rp_sprintf(s, "+PONG");
 }
 
-rp_string_t *rp_command_quit(void *data)
+rp_string_t *rp_command_quit(rp_string_t *s, void *data)
 {
     rp_connection_t *c = data;
 
     c->flags |= RP_SHUTDOWN;
-    return rp_string("+OK");
+    return rp_sprintf(s, "+OK");
 }

@@ -14,8 +14,8 @@ typedef struct {
     char *data;
 } rp_string_t;
 
-rp_string_t *rp_string(const char *format, ...);
-char *rp_strstr(rp_string_t *s, const char *needle);
 long int rp_strtol(rp_string_t *s);
+char *rp_strstr(rp_string_t *s, const char *needle);
+rp_string_t *rp_sprintf(rp_string_t *s, const char *format, ...);
 
 #endif /* _RP_STRING_H_ */

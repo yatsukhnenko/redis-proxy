@@ -45,18 +45,19 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                         e.events = RP_EVENT_READ;
                         eh.del(&eh, c->sockfd, &e);
                         sp = NULL;
+                        s.data = NULL;
+                        s.length = RP_NULL_STRLEN;
                         if(rv != RP_SUCCESS) {
-                            sp = rp_string("-ERR syntax error");
+                            sp = rp_sprintf(&s, "-ERR syntax error");
                         } else if((client->cmd.proto = rp_command_lookup(&client->cmd.name)) == NULL) {
-                            sp = rp_string("-ERR unknown command '%s'", &client->cmd.name);
+                            sp = rp_sprintf(&s, "-ERR unknown command '%s'", &client->cmd.name);
                         } else if(!(c->flags & RP_AUTHENTICATED) && !(client->cmd.proto->flags & RP_WITHOUT_AUTH)) {
-                            sp = rp_string("-ERR operation not permitted");
+                            sp = rp_sprintf(&s, "-ERR operation not permitted");
                         } else if((client->cmd.proto->argc < 0 && client->cmd.argc < abs(client->cmd.proto->argc))
                             || (client->cmd.proto->argc > 0 && client->cmd.argc != client->cmd.proto->argc)) {
-                            sp = rp_string("-ERR wrong number of arguments for '%s' command", &client->cmd.name);
+                            sp = rp_sprintf(&s, "-ERR wrong number of arguments for '%s' command", &client->cmd.name);
                         } else {
-                            sp = client->cmd.proto->flags & RP_LOCAL_COMMAND
-                                ? client->cmd.proto->handler(c) : rp_string(NULL);
+                            sp = client->cmd.proto->flags & RP_LOCAL_COMMAND ? client->cmd.proto->handler(&s, c) : &s;
                         }
                         if(sp == NULL) {
                             rp_connection_close(c, &eh, srv);
@@ -68,10 +69,8 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                             client->buffer.used = sprintf(client->buffer.s.data, "%.*s\r\n", sp->length, sp->data);
                             c->flags |= RP_ALREADY;
                             free(sp->data);
-                            free(sp);
                             continue;
                         }
-                        free(sp);
                         client->server = client->cmd.proto->flags & RP_MASTER_COMMAND
                             ? master : rp_server_lookup(srv);
                         if(client->server == NULL) {

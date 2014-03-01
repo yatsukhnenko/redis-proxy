@@ -1,21 +1,12 @@
 #include "rp_string.h"
 
-rp_string_t *rp_string(const char *format, ...)
+rp_string_t *rp_sprintf(rp_string_t *s, const char *format, ...)
 {
     size_t l;
     va_list ap;
     char *data, *ptr, *str;
-    rp_string_t *arg, *s = NULL;
+    rp_string_t *arg;
 
-    if((s = (rp_string_t *)malloc(sizeof(rp_string_t))) == NULL) {
-        syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-        return NULL;
-    }
-    s->data = NULL;
-    if(format == NULL) {
-        s->length = RP_NULL_STRLEN;
-        return s;
-    }
     s->length = 0;
     str = (char *)format;
     if((ptr = strchr(str, '%')) != NULL) {
@@ -31,7 +22,6 @@ rp_string_t *rp_string(const char *format, ...)
             if((data = realloc(s->data, s->length + l + (arg != NULL ? arg->length : 0))) == NULL) {
                 syslog(LOG_ERR, "realloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
                 free(s->data);
-                free(s);
                 return NULL;
             }
             s->data = data;
@@ -49,7 +39,6 @@ rp_string_t *rp_string(const char *format, ...)
     if((data = realloc(s->data, s->length + l)) == NULL) {
         syslog(LOG_ERR, "realloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         free(s->data);
-        free(s);
         return NULL;
     }
     s->data = data;
