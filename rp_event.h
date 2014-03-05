@@ -9,7 +9,7 @@
 #define RP_EVENT_WRITE 2
 
 typedef struct {
-    unsigned char events;
+    int events;
     void *data;
 } rp_event_t;
 

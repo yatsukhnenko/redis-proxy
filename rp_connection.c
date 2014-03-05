@@ -91,11 +91,9 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                         client->cmd.argc = RP_NULL_STRLEN - 1;
                         client->buffer.r = client->buffer.w = 0;
                         client->buffer.used = 0;
-                        if(!(eh.events[c->sockfd].events & RP_EVENT_WRITE)) {
-                            e.data = client->server;
-                            e.events = RP_EVENT_WRITE;
-                            eh.add(&eh, client->server->sockfd, &e);
-                        }
+                        e.data = client->server;
+                        e.events = RP_EVENT_WRITE;
+                        eh.add(&eh, client->server->sockfd, &e);
                     }
                 }
                 if(eh.ready[i].events & RP_EVENT_WRITE) {
@@ -279,6 +277,8 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
         e.data = c;
         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
         eh->del(eh, c->sockfd, &e);
+        eh->events[c->sockfd].events = 0;
+        eh->events[c->sockfd].data = NULL;
         close(c->sockfd);
         /* free resources */
         free(client->buffer.s.data);
@@ -309,6 +309,8 @@ void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connecti
         e.data = c;
         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
         eh->del(eh, c->sockfd, &e);
+        eh->events[c->sockfd].events = 0;
+        eh->events[c->sockfd].data = NULL;
         close(c->sockfd);
         c->sockfd = -1;
         time(&c->time);
