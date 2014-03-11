@@ -19,7 +19,8 @@ rp_string_t *rp_sprintf(rp_string_t *s, const char *format, ...)
             } else {
                 l++;
             }
-            if((data = realloc(s->data, s->length + l + (arg != NULL ? arg->length : 0))) == NULL) {
+            if((data = realloc(s->data, s->length + l
+                + (arg != NULL && arg->length > 0 ? arg->length : 0))) == NULL) {
                 syslog(LOG_ERR, "realloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
                 free(s->data);
                 return NULL;
@@ -27,7 +28,7 @@ rp_string_t *rp_sprintf(rp_string_t *s, const char *format, ...)
             s->data = data;
             memcpy(&s->data[s->length], str, l);
             s->length += l;
-            if(arg != NULL) {
+            if(arg != NULL && arg->length > 0) {
                 memcpy(&s->data[s->length], arg->data, arg->length);
                 s->length += arg->length;
             }
