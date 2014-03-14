@@ -23,6 +23,6 @@ typedef struct rp_event_handler {
     int (*wait)(struct rp_event_handler *eh, struct timeval *timeout);
 } rp_event_handler_t;
 
-rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh, size_t maxevents);
+rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh);
 
 #endif /* _RP_EVENT_H_ */

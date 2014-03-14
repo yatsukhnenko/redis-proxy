@@ -1,7 +1,7 @@
 #include "rp_epoll.h"
 #ifdef RP_HAVE_EPOLL
 
-rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh, size_t maxevents)
+rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh)
 {
     rp_epoll_data_t *ed = NULL;
 
@@ -9,12 +9,12 @@ rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh, size_t maxevents)
         syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
     }
-    if((ed->events = calloc(maxevents, sizeof(struct epoll_event))) == NULL) {
+    if((ed->events = calloc(eh->maxevents, sizeof(struct epoll_event))) == NULL) {
         syslog(LOG_ERR, "calloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         free(ed);
         return NULL;
     }
-    if((ed->epfd = epoll_create(maxevents)) < 0) {
+    if((ed->epfd = epoll_create(eh->maxevents)) < 0) {
         syslog(LOG_ERR, "epoll_create at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         free(ed->events);
         free(ed);
@@ -26,7 +26,6 @@ rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh, size_t maxevents)
     eh->del = rp_epoll_del;
     eh->wait = rp_epoll_wait;
     syslog(LOG_INFO, "using 'epoll' I/O multiplexing mechanism");
-
     return eh;
 }
 

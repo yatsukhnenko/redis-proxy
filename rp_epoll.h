@@ -10,7 +10,7 @@ typedef struct {
     struct epoll_event *events;
 } rp_epoll_data_t;
 
-rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh, size_t maxevents);
+rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh);
 int rp_epoll_add(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
 int rp_epoll_del(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
 int rp_epoll_wait(struct rp_event_handler *eh, struct timeval *timeout);

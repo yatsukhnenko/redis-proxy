@@ -1,7 +1,7 @@
 #include "rp_kqueue.h"
 #ifdef RP_HAVE_KQUEUE
 
-rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh, size_t maxevents)
+rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh)
 {
     rp_kqueue_data_t *kd = NULL;
 
@@ -9,7 +9,7 @@ rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh, size_t maxevents)
         syslog(LOG_ERR, "malloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         return NULL;
     }
-    if((kd->events = calloc(maxevents, sizeof(struct kevent))) == NULL) {
+    if((kd->events = calloc(eh->maxevents, sizeof(struct kevent))) == NULL) {
         syslog(LOG_ERR, "calloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         free(kd);
         return NULL;
@@ -25,7 +25,6 @@ rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh, size_t maxevents)
     eh->del = rp_kqueue_del;
     eh->wait = rp_kqueue_wait;
     syslog(LOG_INFO, "using 'kqueue' I/O multiplexing mechanism");
-
     return eh;
 }
 

@@ -11,7 +11,7 @@ typedef struct {
     struct kevent *events;
 } rp_kqueue_data_t;
 
-rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh, size_t maxevents);
+rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh);
 int rp_kqueue_add(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
 int rp_kqueue_del(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
 int rp_kqueue_wait(struct rp_event_handler *eh, struct timeval *timeout);

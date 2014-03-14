@@ -16,12 +16,10 @@
 #define RP_UNKNOWN  0
 #define RP_SUCCESS  1
 
-#define RP_TIMEOUT                1
+#define RP_TIMEOUT      1
 
-#define RP_BUFFER_SIZE            4096
-#define RP_CONCURRENT_CONNECTIONS 1024
-
-#define RP_DEFAULT_PORT           6379
+#define RP_BUFFER_SIZE  4096
+#define RP_DEFAULT_PORT 6379
 
 typedef struct {
     size_t used;

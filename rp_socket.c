@@ -49,7 +49,7 @@ int *rp_listen(int *sockfd, in_addr_t address, in_port_t port)
         close(s);
         return NULL;
     }
-    if(listen(s, RP_CONCURRENT_CONNECTIONS) < 0) {
+    if(listen(s, SOMAXCONN) < 0) {
         syslog(LOG_ERR, "listen at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
         close(s);
         return NULL;

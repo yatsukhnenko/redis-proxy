@@ -16,7 +16,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
     rp_connection_t *c;
 
     /* initialize event handler */
-    if(rp_event_handler_init(&eh, RP_CONCURRENT_CONNECTIONS) == NULL) {
+    if(rp_event_handler_init(&eh) == NULL) {
         return EXIT_FAILURE;
     }
     /* handle events on listen socket */
@@ -229,7 +229,9 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                 if((c = rp_connection_accept(l)) != NULL) {
                     e.data = c;
                     e.events = RP_EVENT_READ;
-                    eh.add(&eh, c->sockfd, &e);
+                    if(eh.add(&eh, c->sockfd, &e) != RP_SUCCESS) {
+                        rp_connection_close(c, &eh, srv);
+                    }
                 }
             }
         }
@@ -242,12 +244,15 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                     if(rp_server_connect(c) != NULL) {
                         e.data = c;
                         e.events = RP_EVENT_READ | RP_EVENT_WRITE;
-                        eh.add(&eh, c->sockfd, &e);
+                        if(eh.add(&eh, c->sockfd, &e) != RP_SUCCESS) {
+                            rp_connection_close(c, &eh, srv);
+                        }
                     }
                 }
             } else {
                 server = c->data;
-                if(c->settings.ping > 0 && c->time + c->settings.ping < t && server->client == NULL) {
+                if(c->settings.ping > 0 && c->time + c->settings.ping < t
+                    && !(c->flags & RP_MAINTENANCE) && server->client == NULL) {
                     c->time = t;
                     c->flags |= RP_MAINTENANCE;
                     server->buffer.r = server->buffer.w = 0;
