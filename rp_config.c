@@ -72,7 +72,7 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
         }
         return RP_SUCCESS;
     } else if(chr == RP_CFG_BLOCK_END) {
-        if(cfg->ctx != RP_CFG_SRV_CTX) {
+        if(cfg->ctx != RP_CFG_SERVER_CTX) {
             fprintf(stderr, "%s:%d syntax error\n", cfg->filename, cfg->line);
             return RP_FAILURE;
         }
@@ -96,7 +96,7 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
         cmd++;
     }
     if(cmd->name == NULL) {
-        fprintf(stderr, "%s:%d unknown command %s\n", cfg->filename, cfg->line, name);
+        fprintf(stderr, "%s:%d unknown command '%s'\n", cfg->filename, cfg->line, name);
         return RP_FAILURE;
     }
     return cmd->set(cfg, s);
@@ -105,6 +105,7 @@ int rp_config_setting_process(rp_config_t *cfg, rp_settings_t *s)
 int rp_config_main_setting_listen(rp_config_t *cfg, rp_settings_t *s)
 {
     int port;
+    rp_string_t str;
     char *ptr, *ip = "0.0.0.0";
     struct in_addr addr = { INADDR_ANY };
 
@@ -114,15 +115,18 @@ int rp_config_main_setting_listen(rp_config_t *cfg, rp_settings_t *s)
     if((ptr = strchr(cfg->buffer.s.data, ':')) != NULL) {
         *ptr++ = '\0';
         if(!inet_pton(AF_INET, cfg->buffer.s.data, &addr)) {
-            fprintf(stderr, "%s:%d invalid address %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
+            fprintf(stderr, "%s:%d invalid address '%s'\n", cfg->filename, cfg->line, cfg->buffer.s.data);
             return RP_FAILURE;
         }
         ip = cfg->buffer.s.data;
     } else {
         ptr = cfg->buffer.s.data;
     }
-    if((port = rp_config_parse_port(ptr)) < 0) {
-        fprintf(stderr, "%s:%d invalid port %s\n", cfg->filename, cfg->line, ptr);
+    str.data = ptr;
+    str.length = (int)cfg->buffer.used - (ptr - cfg->buffer.s.data);
+    port = rp_strtol(&str);
+    if(str.length || port <= 0 || port >= 65535) {
+        fprintf(stderr, "%s:%d invalid port '%s'\n", cfg->filename, cfg->line, ptr);
         return RP_FAILURE;
     }
     s->listen->settings.address.length = strlen(ip);
@@ -172,7 +176,7 @@ int rp_config_main_setting_server(rp_config_t *cfg, rp_settings_t *s)
     c->data = NULL;
     c->flags = 0;
     c->time = 0;
-    cfg->ctx = RP_CFG_SRV_CTX;
+    cfg->ctx = RP_CFG_SERVER_CTX;
     return RP_SUCCESS;
 }
 
@@ -201,11 +205,16 @@ int rp_config_server_setting_address(rp_config_t *cfg, rp_settings_t *s)
 int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s)
 {
     int port;
+    rp_string_t str;
+
     if(rp_config_read_value(cfg) != RP_SUCCESS) {
         return RP_FAILURE;
     }
-    if((port = rp_config_parse_port(cfg->buffer.s.data)) < 0) {
-        fprintf(stderr, "%s:%d invalid port %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
+    str.data = cfg->buffer.s.data;
+    str.length = (int)cfg->buffer.used;
+    port = rp_strtol(&str);
+    if(str.length || port <= 0 || port >= 65535) {
+        fprintf(stderr, "%s:%d invalid port '%s'\n", cfg->filename, cfg->line, cfg->buffer.s.data);
         return RP_FAILURE;
     }
     s->servers->c[s->servers->size - 1].settings.port = port;
@@ -217,24 +226,20 @@ int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s)
 int rp_config_server_setting_ping(rp_config_t *cfg, rp_settings_t *s)
 {
     int ping;
-    char *ptr;
+    rp_string_t str;
+
     if(rp_config_read_value(cfg) != RP_SUCCESS) {
         return RP_FAILURE;
     }
-    ptr = cfg->buffer.s.data;
-    if(*ptr >= '0' && *ptr <= '9') {
-        if((ping = *ptr++ - '0') > 0) {
-            while(*ptr >= '0' && *ptr <= '9') {
-                ping = ping * 10 + *ptr++ - '0';
-            }
-        }
-        if(*ptr == '\0') {
-            s->servers->c[s->servers->size - 1].settings.ping = ping;
-            return RP_SUCCESS;
-        }
+    str.data = cfg->buffer.s.data;
+    str.length = (int)cfg->buffer.used;
+    ping = rp_strtol(&str);
+    if(str.length || ping < 0) {
+        fprintf(stderr, "%s:%d invalid ping interval '%s'\n", cfg->filename, cfg->line, cfg->buffer.s.data);
+        return RP_FAILURE;
     }
-    fprintf(stderr, "%s:%d invalid ping interval %s\n", cfg->filename, cfg->line, cfg->buffer.s.data);
-    return RP_FAILURE;
+    s->servers->c[s->servers->size - 1].settings.ping = ping;
+    return RP_SUCCESS;
 }
 
 
@@ -282,22 +287,4 @@ int rp_config_read_value(rp_config_t *cfg)
         return RP_FAILURE;
     }
     return RP_SUCCESS;
-}
-
-int rp_config_parse_port(char *ptr)
-{
-    int port;
-    if(*ptr < '1' || *ptr > '9') {
-        return -1;
-    }
-    port = *ptr++ - '0';
-    while(*ptr >= '0' && *ptr <= '9') {
-        if((port = port * 10 + *ptr++ - '0') > 65535) {
-            return -1;
-        }
-    }
-    if(*ptr != '\0') {
-        return -1;
-    }
-    return port;
 }

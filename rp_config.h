@@ -5,7 +5,7 @@
 #include "rp_connection.h"
 
 #define RP_CFG_MAIN_CTX     0
-#define RP_CFG_SRV_CTX      1
+#define RP_CFG_SERVER_CTX   1
 
 #define RP_CFG_BLOCK_BEGIN '{'
 #define RP_CFG_BLOCK_END   '}'
@@ -23,8 +23,8 @@ typedef struct {
     FILE *f;
     rp_buffer_t buffer;
     char *filename;
-    unsigned ctx;
-    unsigned line;
+    unsigned short ctx;
+    unsigned int line;
 } rp_config_t;
 
 typedef struct {
@@ -41,6 +41,5 @@ int rp_config_server_setting_address(rp_config_t *cfg, rp_settings_t *s);
 int rp_config_server_setting_port(rp_config_t *cfg, rp_settings_t *s);
 int rp_config_server_setting_ping(rp_config_t *cfg, rp_settings_t *s);
 int rp_config_read_value(rp_config_t *cfg);
-int rp_config_parse_port(char *ptr);
 
 #endif /* _RP_CONFIG_H_ */
