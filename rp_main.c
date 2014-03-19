@@ -15,7 +15,6 @@ int main(int argc, char **argv)
     struct passwd *pw = NULL;
     char c, *ptr, *filename = NULL;
     rp_connection_pool_t srv = { 0 };
-    struct in_addr addr = { INADDR_ANY };
 
     for(i = 1; i < argc; i++) {
         ptr = argv[i];
@@ -35,15 +34,14 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    l.sockfd = -1;
-    l.settings.ping = 0;
     l.settings.auth.data = NULL;
     l.settings.auth.length = RP_NULL_STRLEN;
     l.settings.address.data = "0.0.0.0";
-    l.settings.address.length = strlen(l.settings.address.data);
+    l.settings.address.length = sizeof(l.settings.address.data) - 1;
     l.settings.port = RP_DEFAULT_PORT;
-    l.address = addr.s_addr;
+    l.address = INADDR_ANY;
     l.port = htons(RP_DEFAULT_PORT);
+    l.sockfd = -1;
 
     s.listen = &l;
     s.servers = &srv;

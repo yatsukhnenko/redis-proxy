@@ -53,6 +53,7 @@ typedef struct {
 
 typedef struct {
     rp_queue_t queue;
+    rp_command_t cmd;
     rp_buffer_t buffer;
     rp_buffer_t in, out;
     rp_connection_t *client;

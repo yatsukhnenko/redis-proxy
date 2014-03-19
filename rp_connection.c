@@ -127,12 +127,14 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                             rp_connection_close(c, &eh, srv);
                             continue;
                         }
-                        if(*server->buffer.s.data == RP_STATUS_PREFIX) {
-                            c->flags &= ~RP_MAINTENANCE;
-                            if(server->queue.size) {
-                                e.data = c;
-                                e.events = RP_EVENT_WRITE;
-                                eh.add(&eh, c->sockfd, &e);
+                        if((rv = rp_reply_parse(&server->buffer, &server->cmd)) != RP_UNKNOWN) {
+                            if(*server->buffer.s.data == RP_STATUS_PREFIX) {
+                                c->flags &= ~RP_MAINTENANCE;
+                                if(server->queue.size) {
+                                    e.data = c;
+                                    e.events = RP_EVENT_WRITE;
+                                    eh.add(&eh, c->sockfd, &e);
+                                }
                             }
                         }
                     } else {
@@ -207,6 +209,7 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                             e.data = c;
                             e.events = RP_EVENT_WRITE;
                             eh.del(&eh, c->sockfd, &e);
+                            server->cmd.argc = RP_NULL_STRLEN - 1;
                             server->buffer.r = server->buffer.w = 0;
                             server->buffer.used = 0;
                         }
@@ -348,7 +351,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c)
             /* initialize buffer */
             server->buffer.s.length = RP_BUFFER_SIZE;
             if((server->buffer.s.data = malloc(server->buffer.s.length)) == NULL) {
-                server->buffer.s.length = 0;
+                server->buffer.s.length = RP_NULL_STRLEN;
                 return NULL;
             }
             server->buffer.r = server->buffer.w = server->buffer.used = 0;
@@ -437,7 +440,7 @@ rp_connection_t *rp_connection_accept(rp_connection_t *l)
     memset(client, 0, sizeof(rp_client_t));
     client->buffer.s.length = RP_BUFFER_SIZE;
     if((client->buffer.s.data = malloc(client->buffer.s.length)) == NULL) {
-        client->buffer.s.length = 0;
+        client->buffer.s.length = RP_NULL_STRLEN;
     }
     client->cmd.argc = RP_NULL_STRLEN - 1;
     client->server = NULL;

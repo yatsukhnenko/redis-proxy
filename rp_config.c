@@ -33,7 +33,7 @@ int rp_config_file_parse(char *filename, rp_settings_t *s)
     cfg.ctx = RP_CFG_MAIN_CTX;
     cfg.filename = filename;
     cfg.buffer.s.data = NULL;
-    cfg.buffer.s.length = 0;
+    cfg.buffer.s.length = RP_NULL_STRLEN;
     while(!feof(cfg.f)) {
         cfg.buffer.used = 0;
         if(rp_config_setting_process(&cfg, s) != RP_SUCCESS) {
