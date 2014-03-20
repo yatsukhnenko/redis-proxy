@@ -15,7 +15,6 @@
 
 #define RP_SERVER        0x10000000
 #define RP_CLIENT        0x20000000
-#define RP_MASTER        0x40000000
 
 #define RP_ALREADY       0x01000000
 #define RP_SHUTDOWN      0x02000000
@@ -67,6 +66,7 @@ rp_connection_t *rp_server_connect(rp_connection_t *c);
 void rp_connection_close(rp_connection_t *c, rp_event_handler_t *eh, rp_connection_pool_t *srv);
 rp_connection_t *rp_server_lookup(rp_connection_pool_t *srv);
 void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m);
+rp_connection_t *rp_replication_info_parse(rp_string_t *info, rp_connection_pool_t *srv);
 int rp_request_parse(rp_buffer_t *buf, rp_command_t *cmd);
 int rp_reply_parse(rp_buffer_t *buf, rp_command_t *cmd);
 

@@ -41,6 +41,7 @@ int main(int argc, char **argv)
     l.settings.port = RP_DEFAULT_PORT;
     l.address = INADDR_ANY;
     l.port = htons(RP_DEFAULT_PORT);
+    l.flags = RP_MAINTENANCE;
     l.sockfd = -1;
 
     s.listen = &l;

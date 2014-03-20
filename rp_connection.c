@@ -128,12 +128,40 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                             continue;
                         }
                         if((rv = rp_reply_parse(&server->buffer, &server->cmd)) != RP_UNKNOWN) {
-                            if(*server->buffer.s.data == RP_STATUS_PREFIX) {
-                                c->flags &= ~RP_MAINTENANCE;
-                                if(server->queue.size) {
+                            if(l->flags & RP_MAINTENANCE) {
+                                if(*server->buffer.s.data == RP_BULK_PREFIX) {
+                                    if((server->master = rp_replication_info_parse(&server->cmd.argv, srv)) == NULL) {
+                                        master = c;
+                                        rp_set_slaveof(c, NULL);
+                                        syslog(LOG_INFO, "Set %s:%d slave of no one",
+                                            master->settings.address.data, master->settings.port);
+                                        e.data = c;
+                                        e.events = RP_EVENT_WRITE;
+                                        eh.add(&eh, c->sockfd, &e);
+                                    } else {
+                                        master = server->master;
+                                        c->flags &= ~RP_MAINTENANCE;
+                                        syslog(LOG_INFO, "Set %s:%d slave of no one",
+                                            master->settings.address.data, master->settings.port);
+                                        syslog(LOG_INFO, "Set %s:%d slave of %s:%d",
+                                            c->settings.address.data, c->settings.port,
+                                            master->settings.address.data, master->settings.port);
+                                    }
+                                    l->flags &= ~(RP_MAINTENANCE | RP_ALREADY);
+                                } else {
+                                    l->flags &= ~RP_ALREADY;
                                     e.data = c;
                                     e.events = RP_EVENT_WRITE;
                                     eh.add(&eh, c->sockfd, &e);
+                                }
+                            } else {
+                                if(*server->buffer.s.data == RP_STATUS_PREFIX) {
+                                    c->flags &= ~RP_MAINTENANCE;
+                                    if(server->queue.size) {
+                                        e.data = c;
+                                        e.events = RP_EVENT_WRITE;
+                                        eh.add(&eh, c->sockfd, &e);
+                                    }
                                 }
                             }
                         }
@@ -182,11 +210,20 @@ int rp_connection_handler_loop(rp_connection_t *l, rp_connection_pool_t *srv)
                     }
                     if(c->flags & RP_MAINTENANCE) {
                         if(master == NULL) {
-                            master = c;
-                            rp_set_slaveof(c, NULL);
-                            syslog(LOG_INFO, "Set %s:%d slave of no one",
-                                c->settings.address.data, c->settings.port);
-                        } else if(!(c->flags & RP_MASTER) && server->master != master) {
+                            if(l->flags & RP_MAINTENANCE) {
+                                if(l->flags & RP_ALREADY) {
+                                    continue;
+                                }
+                                l->flags |= RP_ALREADY;
+                                server->buffer.used = sprintf(server->buffer.s.data,
+                                    "*2\r\n$4\r\nINFO\r\n$11\r\nreplication\r\n");
+                            } else {
+                                master = c;
+                                rp_set_slaveof(c, NULL);
+                                syslog(LOG_INFO, "Set %s:%d slave of no one",
+                                    c->settings.address.data, c->settings.port);
+                            }
+                        } else if(c != master && server->master != master) {
                             if(master->flags & RP_MAINTENANCE) {
                                 /* master is not ready */
                                 continue;
@@ -463,18 +500,56 @@ void rp_set_slaveof(rp_connection_t *c, rp_connection_t *m)
     if(m == NULL) {
         server->buffer.used = sprintf(server->buffer.s.data,
             "*3\r\n$7\r\nSLAVEOF\r\n$2\r\nNO\r\n$3\r\nONE\r\n");
-        c->flags |= RP_MASTER;
         m = c;
     } else {
         server->buffer.used = sprintf(server->buffer.s.data,
             "*3\r\n$7\r\nSLAVEOF\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
             m->settings.address.length, m->settings.address.data,
             sprintf(b, "%u", m->settings.port), b);
-        c->flags &= ~RP_MASTER;
     }
     c->flags |= RP_MAINTENANCE;
-    server->master = m;
     server->buffer.r = server->buffer.w = 0;
+    server->master = m;
+}
+
+rp_connection_t *rp_replication_info_parse(rp_string_t *info, rp_connection_pool_t *srv)
+{
+    int i;
+    rp_string_t s;
+    char *ptr, *val;
+    in_addr_t address = INADDR_NONE;
+    in_port_t port = 0;
+
+    s.data = info->data;
+    s.length = info->length;
+    while((ptr = rp_strstr(&s, "\r\n")) != NULL) {
+        *ptr = '\0';
+        if((val = strchr(s.data, ':')) != NULL) {
+            *val++ = '\0';
+            if(!strcmp(s.data, "role")) {
+                if(!strcmp(val, "master")) {
+                    return NULL;
+                }
+            } else if(!strcmp(s.data, "master_host")) {
+                address = inet_addr(val);
+            } else if(!strcmp(s.data, "master_port")) {
+                port = htons(strtol(val, NULL, 10));
+            } else if(!strcmp(s.data, "master_link_status")) {
+                if(!strcmp(val, "down")) {
+                    return NULL;
+                }
+            }
+        }
+        ptr += 2;
+        s.length -= ptr - s.data;
+        s.data = ptr;
+    }
+    for(i = 0; i < srv->size; i++) {
+        if(srv->c[i].address == address && srv->c[i].port == port) {
+            return &srv->c[i];
+        }
+    }
+    return NULL;
 }
 
 rp_connection_t *rp_server_lookup(rp_connection_pool_t *s)

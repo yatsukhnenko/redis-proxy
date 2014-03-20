@@ -264,7 +264,7 @@ int rp_config_read_value(rp_config_t *cfg)
         } else if(chr == RP_CFG_TERMINATION || RP_ISSPACE(chr)) {
             break;
         }
-        if(cfg->buffer.used + 1 > cfg->buffer.s.length) {
+        if((int)cfg->buffer.used + 1 > cfg->buffer.s.length) {
             if(rp_buffer_resize(&cfg->buffer, RP_BUFFER_SIZE) != RP_SUCCESS) {
                 return RP_FAILURE;
             }
