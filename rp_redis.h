@@ -37,5 +37,7 @@ rp_command_proto_t *rp_command_lookup(rp_string_t *name);
 rp_string_t *rp_command_auth(rp_string_t *s, void *data);
 rp_string_t *rp_command_ping(rp_string_t *s, void *data);
 rp_string_t *rp_command_quit(rp_string_t *s, void *data);
+int rp_request_parse(rp_buffer_t *buffer, rp_command_t *cmd);
+int rp_reply_parse(rp_buffer_t *buffer, rp_command_t *cmd);
 
 #endif /* _RP_REDIS_H_ */
