@@ -9,18 +9,17 @@
 #define RP_EVENT_WRITE 2
 
 typedef struct {
-    int events;
+    short events;
     void *data;
 } rp_event_t;
 
 typedef struct rp_event_handler {
     void *data;
     size_t maxevents;
-    rp_event_t *ready;
     rp_event_t *events;
     int (*add)(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
     int (*del)(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
-    int (*wait)(struct rp_event_handler *eh, struct timeval *timeout);
+    void (*poll)(struct rp_event_handler *eh, struct timeval *timeout);
 } rp_event_handler_t;
 
 rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh);

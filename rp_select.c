@@ -1,5 +1,7 @@
-#include "rp_select.h"
+#include "rp_connection.h"
+
 #ifdef RP_HAVE_SELECT
+#include "rp_select.h"
 
 rp_event_handler_t *rp_select_init(rp_event_handler_t *eh)
 {
@@ -15,7 +17,7 @@ rp_event_handler_t *rp_select_init(rp_event_handler_t *eh)
     eh->data = sd;
     eh->add = rp_select_add;
     eh->del = rp_select_del;
-    eh->wait = rp_select_wait;
+    eh->poll = rp_select_wait;
     syslog(LOG_INFO, "using 'select' I/O multiplexing mechanism");
     return eh;
 }
@@ -66,37 +68,43 @@ int rp_select_del(struct rp_event_handler *eh, int sockfd, rp_event_t *e)
     return RP_SUCCESS;
 }
 
-int rp_select_wait(struct rp_event_handler *eh, struct timeval *timeout)
+void rp_select_wait(struct rp_event_handler *eh, struct timeval *timeout)
 {
+    int i, j, n;
     rp_event_t e;
-    int i, j, ready;
     fd_set rfds, wfds;
+    struct timeval tv;
+    rp_connection_t *c;
     rp_select_data_t *sd = eh->data;
 
     rfds = sd->rfds;
     wfds = sd->wfds;
-    if((ready = select(sd->nfds + 1, &rfds, &wfds, NULL, timeout)) < 0) {
+    if((n = select(sd->nfds + 1, &rfds, &wfds, NULL, timeout)) < 0) {
         syslog(LOG_ERR, "select at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-    } else if(ready > 0) {
+    } else if(n > 0) {
         j = 0;
-        for(i = 0; i < sd->nfds + 1; i++) {
+        gettimeofday(&tv, NULL);
+        for(i = 0; i < sd->nfds + 1 && j < n; i++) {
             e.events = 0;
             if(FD_ISSET(i, &rfds)) {
                 e.events |= RP_EVENT_READ;
+                j++;
             }
             if(FD_ISSET(i, &wfds)) {
                 e.events |= RP_EVENT_WRITE;
+                j++;
             }
             if(e.events) {
-                eh->ready[j].events = e.events;
-                eh->ready[j].data = eh->events[i].data;
-                if(++j == ready) {
-                    break;
+                c = eh->events[i].data;
+                c->time = tv.tv_sec + tv.tv_usec / 1000000.0;
+                if((!(e.events & RP_EVENT_READ) || c->on.read(c, eh) == RP_SUCCESS)
+                    && (!(e.events & RP_EVENT_WRITE) || c->on.write(c, eh) == RP_SUCCESS)) {
+                    continue;
                 }
+                c->on.close(c, eh);
             }
         }
     }
-    return ready;
 }
 
 #endif /* RP_HAVE_SELECT */

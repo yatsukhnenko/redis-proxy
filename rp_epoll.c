@@ -1,5 +1,7 @@
-#include "rp_epoll.h"
+#include "rp_connection.h"
+
 #ifdef RP_HAVE_EPOLL
+#include "rp_epoll.h"
 
 rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh)
 {
@@ -24,7 +26,7 @@ rp_event_handler_t *rp_epoll_init(rp_event_handler_t *eh)
     eh->data = ed;
     eh->add = rp_epoll_add;
     eh->del = rp_epoll_del;
-    eh->wait = rp_epoll_wait;
+    eh->poll = rp_epoll_wait;
     syslog(LOG_INFO, "using 'epoll' I/O multiplexing mechanism");
     return eh;
 }
@@ -109,35 +111,32 @@ int rp_epoll_del(rp_event_handler_t *eh, int sockfd, rp_event_t *e)
     return RP_SUCCESS;
 }
 
-int rp_epoll_wait(rp_event_handler_t *eh, struct timeval *timeout)
+void rp_epoll_wait(rp_event_handler_t *eh, struct timeval *timeout)
 {
-    int i, ready;
+    int i, n;
+    struct timeval tv;
+    rp_connection_t *c;
     struct epoll_event *event;
     rp_epoll_data_t *ed = eh->data;
 
     i = timeout != NULL ? timeout->tv_sec * 1000 + timeout->tv_usec / 1000 : -1;
-    if((ready = epoll_wait(ed->epfd, ed->events, eh->maxevents, i)) < 0) {
+    if((n = epoll_wait(ed->epfd, ed->events, eh->maxevents, i)) < 0) {
         syslog(LOG_ERR, "epoll_wait at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-    } else if(ready > 0) {
-        for(i = 0; i < ready; i++) {
+    } else if(n > 0) {
+        gettimeofday(&tv, NULL);
+        for(i = 0; i < n; i++) {
             event = &ed->events[i];
-            eh->ready[i].events = 0;
-            eh->ready[i].data = eh->events[event->data.fd].data;
-            if(event->events & (EPOLLERR | EPOLLHUP)) {
-                eh->ready[i].events = RP_EVENT_READ;
-                continue;
-            } else {
-                if(event->events & EPOLLIN) {
-                    eh->ready[i].events |= RP_EVENT_READ;
-                }
-                if(event->events & EPOLLOUT) {
-                    eh->ready[i].events |= RP_EVENT_WRITE;
+            c = eh->events[event->data.fd].data;
+            c->time = tv.tv_sec + tv.tv_usec / 1000000.0;
+            if(!(event->events & (EPOLLERR | EPOLLHUP))) {
+                if((!(event->events & EPOLLIN) || c->on.read(c, eh) == RP_SUCCESS)
+                    && (!(event->events & EPOLLOUT) || c->on.write(c, eh) == RP_SUCCESS)) {
+                    continue;
                 }
             }
+            c->on.close(c, eh);
         }
     }
-
-    return ready;
 }
 
 #endif /* RP_HAVE_EPOLL */

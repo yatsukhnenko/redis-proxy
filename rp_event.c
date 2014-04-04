@@ -1,4 +1,4 @@
-#include "rp_event.h"
+#include "rp_connection.h"
 
 #if defined(RP_HAVE_EPOLL)
 #include "rp_epoll.h"
@@ -20,11 +20,6 @@ rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh)
         return NULL;
     }
     memset(eh->events, 0, eh->maxevents * sizeof(rp_event_t));
-    if((eh->ready = calloc(eh->maxevents, sizeof(rp_event_t))) == NULL) {
-        syslog(LOG_ERR, "calloc at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-        free(eh->events);
-        return NULL;
-    }
 #if defined(RP_HAVE_EPOLL)
     if(rp_epoll_init(eh) == NULL) {
 #elif defined(RP_HAVE_KQUEUE)
@@ -32,7 +27,6 @@ rp_event_handler_t *rp_event_handler_init(rp_event_handler_t *eh)
 #else
     if(rp_select_init(eh) == NULL) {
 #endif
-        free(eh->ready);
         free(eh->events);
         return NULL;
     }

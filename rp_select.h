@@ -2,7 +2,6 @@
 #define _RP_SELECT_H_
 
 #include "rp_event.h"
-#ifdef RP_HAVE_SELECT
 #include <sys/select.h>
 
 typedef struct {
@@ -14,7 +13,6 @@ typedef struct {
 rp_event_handler_t *rp_select_init(rp_event_handler_t *eh);
 int rp_select_add(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
 int rp_select_del(struct rp_event_handler *eh, int sockfd, rp_event_t *e);
-int rp_select_wait(struct rp_event_handler *eh, struct timeval *timeout);
+void rp_select_wait(struct rp_event_handler *eh, struct timeval *timeout);
 
-#endif /* RP_HAVE_SELECT */
 #endif /* _RP_SELECT_H_ */

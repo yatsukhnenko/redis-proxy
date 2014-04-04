@@ -1,5 +1,7 @@
-#include "rp_kqueue.h"
+#include "rp_connection.h"
+
 #ifdef RP_HAVE_KQUEUE
+#include "rp_kqueue.h"
 
 rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh)
 {
@@ -23,7 +25,7 @@ rp_event_handler_t *rp_kqueue_init(rp_event_handler_t *eh)
     eh->data = kd;
     eh->add = rp_kqueue_add;
     eh->del = rp_kqueue_del;
-    eh->wait = rp_kqueue_wait;
+    eh->poll = rp_kqueue_wait;
     syslog(LOG_INFO, "using 'kqueue' I/O multiplexing mechanism");
     return eh;
 }
@@ -97,9 +99,11 @@ int rp_kqueue_del(struct rp_event_handler *eh, int sockfd, rp_event_t *e)
     return RP_SUCCESS;
 }
 
-int rp_kqueue_wait(struct rp_event_handler *eh, struct timeval *timeout)
+void rp_kqueue_wait(struct rp_event_handler *eh, struct timeval *timeout)
 {
-    int i, ready;
+    int i, n;
+    struct timeval tv;
+    rp_connection_t *c;
     struct kevent *event;
     struct timespec ts, *pts;
     rp_kqueue_data_t *kd = eh->data;
@@ -111,23 +115,23 @@ int rp_kqueue_wait(struct rp_event_handler *eh, struct timeval *timeout)
         pts = &ts;
     }
 
-    if((ready = kevent(kd->kqfd, NULL, 0, kd->events, eh->maxevents, pts)) < 0) {
+    if((n = kevent(kd->kqfd, NULL, 0, kd->events, eh->maxevents, pts)) < 0) {
         syslog(LOG_ERR, "kevent at %s:%d - %s", __FILE__, __LINE__, strerror(errno));
-    } else if(ready > 0) {
-        for(i = 0; i < ready; i++) {
+    } else if(n > 0) {
+        gettimeofday(&tv, NULL);
+        for(i = 0; i < n; i++) {
             event = &kd->events[i];
-            eh->ready[i].events = 0;
-            eh->ready[i].data = eh->events[event->ident].data;
-            if(event->filter == EVFILT_READ) {
-                eh->ready[i].events |= RP_EVENT_READ;
+            c = eh->events[event->ident].data;
+            c->time = tv.tv_sec + tv.tv_usec / 1000000.0;
+            if(!(event->flags & EV_ERROR)) {
+                if((event->filter != EVFILT_READ || c->on.read(c, eh) == RP_SUCCESS)
+                    && (event->filter != EVFILT_WRITE || c->on.write(c, eh) == RP_SUCCESS)) {
+                    continue;
+                }
             }
-            if(event->filter == EVFILT_WRITE) {
-                eh->ready[i].events |= RP_EVENT_WRITE;
-            }
+            c->on.close(c, eh);
         }
     }
-
-    return ready;
 }
 
 #endif /* RP_HAVE_KQUEUE */

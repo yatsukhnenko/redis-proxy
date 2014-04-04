@@ -34,6 +34,7 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    l.on.read = rp_connection_accept;
     l.settings.auth.data = NULL;
     l.settings.auth.length = RP_NULL_STRLEN;
     l.settings.address.data = "0.0.0.0";
@@ -42,7 +43,9 @@ int main(int argc, char **argv)
     l.address = INADDR_ANY;
     l.port = htons(RP_DEFAULT_PORT);
     l.flags = RP_MAINTENANCE;
+    l.connection = NULL;
     l.sockfd = -1;
+    l.data = &srv;
 
     s.listen = &l;
     s.servers = &srv;
@@ -88,7 +91,7 @@ int main(int argc, char **argv)
             if(pw != NULL && setuid(pw->pw_uid) != 0) {
                 syslog(LOG_ERR, "setuid at %s:%d - %s\n", __FILE__, __LINE__, strerror(errno));
             }
-            return rp_connection_handler_loop(&l, &srv);
+            return rp_connection_handler_loop(&l);
         }
     }
     return EXIT_SUCCESS;

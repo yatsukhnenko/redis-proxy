@@ -166,13 +166,14 @@ int rp_config_main_setting_server(rp_config_t *cfg, rp_settings_t *s)
     }
     s->servers->c = c;
     c = &s->servers->c[s->servers->size++];
-    c->sockfd = -1;
     c->settings.ping = 30;
     c->settings.address.data = "127.0.0.1";
     c->settings.address.length = strlen(c->settings.address.data);
     c->settings.port = RP_DEFAULT_PORT;
     c->address = INADDR_LOOPBACK;
     c->port = htons(RP_DEFAULT_PORT);
+    c->connection = s->listen;
+    c->sockfd = -1;
     c->data = NULL;
     c->flags = 0;
     c->time = 0;
@@ -234,7 +235,7 @@ int rp_config_server_setting_ping(rp_config_t *cfg, rp_settings_t *s)
     str.data = cfg->buffer.s.data;
     str.length = (int)cfg->buffer.used;
     ping = rp_strtol(&str);
-    if(str.length || ping < 0) {
+    if(str.length || ping <= 0) {
         fprintf(stderr, "%s:%d invalid ping interval '%s'\n", cfg->filename, cfg->line, cfg->buffer.s.data);
         return RP_FAILURE;
     }
